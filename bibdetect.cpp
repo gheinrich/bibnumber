@@ -9,6 +9,10 @@
 #include <iterator>
 #include <stdio.h>
 
+#include <tesseract/baseapi.h>
+#include <tesseract/strngs.h>
+#include <iostream>
+
 using namespace std;
 using namespace cv;
 
