@@ -267,9 +267,8 @@ void renderChainsWithBoxes (IplImage * SWTImage,
  	//tess.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
 	cv::Mat mat = cv::Mat(input)(roi);
  	cv::imwrite ( "bib-tess-input.png", mat);
-	//tess.SetImage((uchar*)mat.data, mat.cols, mat.rows, 1, mat.cols);
-	tess.TesseractRect( mat.data, 1, mat.step1(), 0, 0, mat.cols, mat.rows ); 
- 	// Get the text
+	tess.SetImage((uchar*)mat.data, mat.cols, mat.rows, 1, mat.step1());
+	// Get the text
  	char* out = tess.GetUTF8Text();
  	std::cout << "Mat text: " << out << std::endl;
 
