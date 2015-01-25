@@ -43,6 +43,10 @@
 #include <vector>
 #include <TextDetection.h>
 
+#include <tesseract/baseapi.h>
+#include <tesseract/strngs.h>
+#include <iostream>
+
 #define PI 3.14159265
 
 std::vector<std::pair<CvPoint,CvPoint> > findBoundingBoxes( std::vector<std::vector<Point2d> > & components,
@@ -209,7 +213,9 @@ void renderChainsWithBoxes (IplImage * SWTImage,
                    std::vector<std::vector<Point2d> > & components,
                    std::vector<Chain> & chains,
                    std::vector<std::pair<Point2d,Point2d> > & compBB,
-                   IplImage * output) {
+                   IplImage * output,
+		   IplImage * input
+ 			  ) {
     // keep track of included components
     std::vector<bool> included;
     included.reserve(components.size());
@@ -250,6 +256,23 @@ void renderChainsWithBoxes (IplImage * SWTImage,
         else c=cvScalar(0,0,255);
         count++;
         cvRectangle(output,it->first,it->second,c,2);
+
+	
+	cv::Rect roi = cv::Rect(it->first, it->second);	
+ 	// Pass it to Tesseract API
+ 	tesseract::TessBaseAPI tess;
+	tess.Init(NULL, "eng", tesseract::OEM_DEFAULT);
+ 	//tess.SetVariable("tessedit_char_whitelist", "0123456789");
+ 	//tess.SetVariable("tessedit_write_images", "true");
+ 	//tess.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
+	cv::Mat mat = cv::Mat(input)(roi);
+ 	cv::imwrite ( "bib-tess-input.png", mat);
+	//tess.SetImage((uchar*)mat.data, mat.cols, mat.rows, 1, mat.cols);
+	tess.TesseractRect( mat.data, 1, mat.step1(), 0, 0, mat.cols, mat.rows ); 
+ 	// Get the text
+ 	char* out = tess.GetUTF8Text();
+ 	std::cout << "Mat text: " << out << std::endl;
+
     }
 }
 
@@ -314,7 +337,7 @@ IplImage * textDetection (IplImage * input, bool dark_on_light)
     cvSmooth(gradientX, gradientX, 3, 3);
     cvSmooth(gradientY, gradientY, 3, 3);
     cvReleaseImage ( &gaussianImage );
-    cvReleaseImage ( &grayImage );
+    
 
     // Calculate SWT and return ray vectors
     std::vector<Ray> rays;
@@ -374,7 +397,7 @@ IplImage * textDetection (IplImage * input, bool dark_on_light)
 
     IplImage * output =
             cvCreateImage ( cvGetSize ( input ), IPL_DEPTH_8U, 3 );
-    renderChainsWithBoxes ( SWTImage, validComponents, chains, compBB, output);
+    renderChainsWithBoxes ( SWTImage, validComponents, chains, compBB, output, grayImage);
     cvSaveImage ( "text-boxes.png", output);
     cvReleaseImage ( &output );
     
@@ -382,6 +405,7 @@ IplImage * textDetection (IplImage * input, bool dark_on_light)
     cvReleaseImage ( &gradientY );
     cvReleaseImage ( &SWTImage );
     cvReleaseImage ( &edgeImage );
+    cvReleaseImage ( &grayImage );
     return output5;
 }
 
