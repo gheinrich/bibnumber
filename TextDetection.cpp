@@ -262,9 +262,9 @@ void renderChainsWithBoxes (IplImage * SWTImage,
  	// Pass it to Tesseract API
  	tesseract::TessBaseAPI tess;
 	tess.Init(NULL, "eng", tesseract::OEM_DEFAULT);
- 	//tess.SetVariable("tessedit_char_whitelist", "0123456789");
- 	//tess.SetVariable("tessedit_write_images", "true");
- 	//tess.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
+ 	tess.SetVariable("tessedit_char_whitelist", "0123456789");
+ 	tess.SetVariable("tessedit_write_images", "true");
+ 	tess.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
 	cv::Mat mat = cv::Mat(input)(roi);
  	cv::imwrite ( "bib-tess-input.png", mat);
 	tess.SetImage((uchar*)mat.data, mat.cols, mat.rows, 1, mat.step1());
