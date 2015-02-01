@@ -49,6 +49,8 @@
 
 #define PI 3.14159265
 
+#define MAX_TORSO_TO_BIB_RATIO_X (4)
+
 std::vector<std::pair<CvPoint,CvPoint> > findBoundingBoxes( std::vector<std::vector<Point2d> > & components,
                                                            std::vector<Chain> & chains,
                                                            std::vector<std::pair<Point2d,Point2d> > & compBB,
@@ -72,6 +74,53 @@ std::vector<std::pair<CvPoint,CvPoint> > findBoundingBoxes( std::vector<std::vec
         bb.push_back(pair);
     }
     return bb;
+}
+
+std::vector<std::vector<CvPoint> > findBoundingTrapeze( std::vector<std::vector<Point2d> > & components,
+                                                           std::vector<Chain> & chains,
+                                                           std::vector<std::pair<Point2d,Point2d> > & compBB,
+                                                           IplImage * output) {
+    std::vector<std::vector<CvPoint> > bt;
+    bt.reserve(chains.size());
+    for (std::vector<Chain>::iterator chainit = chains.begin(); chainit != chains.end(); chainit++) {
+        int minx = output->width;
+        int maxx = 0;
+        int leftmostComponent = 0;
+        int rightmostComponent = 0;
+        for (std::vector<int>::const_iterator cit = chainit->components.begin(); cit != chainit->components.end(); cit++) {
+                if (compBB[*cit].first.x <=  minx)
+		{
+		    minx = compBB[*cit].first.x;
+		    leftmostComponent = *cit;
+		}
+		if (compBB[*cit].second.x >=  maxx)
+		{
+		    maxx = compBB[*cit].second.x;
+		    rightmostComponent = *cit;
+		}
+        }
+        if ( maxx-minx > output->width/MAX_TORSO_TO_BIB_RATIO_X)
+	{
+	  CvPoint topLeft = cvPoint(compBB[leftmostComponent].first.x, compBB[leftmostComponent].first.y );
+	  CvPoint bottomLeft = cvPoint(compBB[leftmostComponent].first.x, compBB[leftmostComponent].second.y );
+	  CvPoint topRight = cvPoint(compBB[rightmostComponent].second.x, compBB[rightmostComponent].first.y );
+	  CvPoint bottomRight = cvPoint(compBB[rightmostComponent].second.x, compBB[rightmostComponent].second.y );
+	  std::vector<CvPoint> trapeze;
+	  trapeze.push_back(topLeft);
+	  trapeze.push_back(bottomLeft);
+	  trapeze.push_back(topRight);
+	  trapeze.push_back(bottomRight);
+	  bt.push_back(trapeze);
+	  
+	  std::cout <<  "Trapeze: "
+            <<  "("   << topLeft.x << "," << topLeft.y 
+	    <<  "),(" <<  bottomLeft.x << "," << bottomLeft.y
+            <<  "),(" <<  topRight.x << "," << topRight.y
+            <<  "),(" <<  bottomRight.x << "," << bottomRight.y << ")"
+	    <<  std::endl;
+       }
+    }
+    return bt;
 }
 
 std::vector<std::pair<CvPoint,CvPoint> > findBoundingBoxes( std::vector<std::vector<Point2d> > & components,
@@ -205,9 +254,10 @@ void renderComponentsWithBoxes (IplImage * SWTImage, std::vector<std::vector<Poi
         else if (count % 3 == 1) c=cvScalar(0,255,0);
         else c=cvScalar(0,0,255);
         count++;
-        cvRectangle(output,it->first,it->second,c,2);
     }
 }
+
+
 
 void renderChainsWithBoxes (IplImage * SWTImage,
                    std::vector<std::vector<Point2d> > & components,
@@ -241,6 +291,9 @@ void renderChainsWithBoxes (IplImage * SWTImage,
     std::vector<std::pair<CvPoint,CvPoint> > bb;
     bb = findBoundingBoxes(components, chains, compBB, outTemp);
 
+    std::vector<std::vector<CvPoint> > bt;
+    bt = findBoundingTrapeze(components, chains, compBB, outTemp);
+    
     IplImage * out =
             cvCreateImage ( cvGetSize ( output ), IPL_DEPTH_8U, 1 );
     cvConvertScale(outTemp, out, 255, 0);
@@ -248,6 +301,7 @@ void renderChainsWithBoxes (IplImage * SWTImage,
     cvReleaseImage ( &out );
     cvReleaseImage ( &outTemp);
 
+#if 0
     int count = 0;
     for (std::vector<std::pair<CvPoint,CvPoint> >::iterator it= bb.begin(); it != bb.end(); it++) {
         CvScalar c;
@@ -259,20 +313,68 @@ void renderChainsWithBoxes (IplImage * SWTImage,
 
 	
 	cv::Rect roi = cv::Rect(it->first, it->second);	
- 	// Pass it to Tesseract API
- 	tesseract::TessBaseAPI tess;
-	tess.Init(NULL, "eng", tesseract::OEM_DEFAULT);
- 	tess.SetVariable("tessedit_char_whitelist", "0123456789");
- 	tess.SetVariable("tessedit_write_images", "true");
- 	tess.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
-	cv::Mat mat = cv::Mat(input)(roi);
- 	cv::imwrite ( "bib-tess-input.png", mat);
-	tess.SetImage((uchar*)mat.data, mat.cols, mat.rows, 1, mat.step1());
-	// Get the text
- 	char* out = tess.GetUTF8Text();
- 	std::cout << "Mat text: " << out << std::endl;
+	
+	if (roi.width > input->width/MAX_TORSO_TO_BIB_RATIO_X)
+	{
+	  cv::Mat mat_roi = cv::Mat(input)(roi);
+	  cv::Mat mat;
+	  cv::threshold(mat_roi, mat
+            , 0    // the value doesn't matter for Otsu thresholding
+            , 255  // we could choose any non-zero value. 255 (white) makes it easy to see the binary image
+            , cv::THRESH_OTSU | cv::THRESH_BINARY_INV);
+	  cv::imwrite ( "bib-tess-input.png", mat);
+      }
 
+# else
+
+    for (std::vector<std::vector<CvPoint> >::iterator it= bt.begin(); it != bt.end(); it++) {
+        CvPoint topLeft = (*it)[0];
+        CvPoint bottomLeft = (*it)[1];
+        CvPoint topRight = (*it)[2];
+	CvPoint bottomRight = (*it)[3];
+	
+	double theta_rad = atan2( bottomRight.y - bottomLeft.y,  bottomRight.x - bottomLeft.x);
+	double theta_deg = (theta_rad/PI) * 180;
+	
+	printf("%f degrees\n", theta_deg);
+	
+	cv::Mat rotMatrix = cv::getRotationMatrix2D(bottomLeft, theta_deg , 1.0);
+	
+	cv::Mat inputMat = cv::Mat(input);
+	cv::Mat rotatedMat = cv::Mat::zeros( inputMat.rows, inputMat.cols, inputMat.type() );
+	cv::warpAffine( inputMat, rotatedMat, rotMatrix, rotatedMat.size() );
+	
+	
+	CvPoint newTopLeft = cvPoint(std::max(0, topLeft.x-4), std::max(0, topLeft.y-4));
+	CvPoint newBottomRight = cvPoint(std::min(inputMat.cols, bottomRight.x+2),std::min(inputMat.rows, bottomLeft.y+2));
+	cv::Rect roi = cv::Rect(newTopLeft,  newBottomRight);
+	cv::Mat mat_roi = rotatedMat(roi);
+	
+	cv::Mat mat;
+	cv::threshold(mat_roi, mat
+            , 0    // the value doesn't matter for Otsu thresholding
+            , 255  // we could choose any non-zero value. 255 (white) makes it easy to see the binary image
+            , cv::THRESH_OTSU | cv::THRESH_BINARY_INV);
+	cv::imwrite ( "bib-tess-input.png", mat);
+
+	  // Pass it to Tesseract API
+	  tesseract::TessBaseAPI tess;
+	  tess.Init(NULL, "eng", tesseract::OEM_DEFAULT);
+	  tess.SetVariable("tessedit_char_whitelist", "0123456789");
+	  tess.SetVariable("tessedit_write_images", "true");
+	  tess.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
+	  tess.SetImage((uchar*)mat.data, mat.cols, mat.rows, 1, mat.step1());
+	  // Get the text
+	  char* out = tess.GetUTF8Text();
+	  std::cout << "Mat text: " << out << std::endl;
+	  
+	  cv::rectangle(rotatedMat,roi,cvScalar(0,0,255),2);
+	  cv::imwrite("bib-rotated.png",  rotatedMat);
+	  
     }
+
+    
+# endif
 }
 
 void renderChains (IplImage * SWTImage,

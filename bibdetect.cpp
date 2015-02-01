@@ -261,17 +261,26 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
 
 	Rect roi = cv::Rect(cvPoint(cvRound((r->x-0.66*r->width)*scale), cvRound((r->y+2*r->height)*scale)),
 		cvPoint(cvRound((r->x+1.66*r->width)*scale), cvRound((r->y+5.5*r->height)*scale)));
-
-	rectangle( img, roi, color, 3, 8, 0);
+	
+	roi.x = std::max(roi.x,0);
+	roi.y = std::max(roi.y,0);
+	roi.x = std::min(roi.x, img.cols);
+	roi.y = std::min(roi.y, img.rows);
+	roi.width = std::min(roi.width, img.cols - roi.x);
+	roi.height = std::min(roi.height, img.rows - roi.y);
+	
+	//rectangle( img, roi, color, 3, 8, 0);
 
 	Mat subImage(img, roi);
 	IplImage ipl_img = subImage;
-	if (i==2)
+	//if (i==11)
 	{
 	  Mat output = textDetection ( &ipl_img, 1 );
 	  char filename[100];
-	  sprintf(filename, "out%d.jpg",i);
+	  sprintf(filename, "text-detect-%d.jpg",i);
 	  cv::imwrite(filename, output);
+	  sprintf(filename, "torso-%d.jpg",i);
+	  cv::imwrite(filename, subImage);
 	}
     }
     cv::imshow( "result", img );
