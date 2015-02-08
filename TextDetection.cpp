@@ -253,6 +253,7 @@ void renderComponentsWithBoxes (IplImage * SWTImage, std::vector<std::vector<Poi
         if (count % 3 == 0) c=cvScalar(255,0,0);
         else if (count % 3 == 1) c=cvScalar(0,255,0);
         else c=cvScalar(0,0,255);
+	cvRectangle(output, it->first,it->second, c);
         count++;
     }
 }

@@ -259,8 +259,8 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
                        cvPoint(cvRound((r->x + r->width-1)*scale), cvRound((r->y + r->height-1)*scale)),
                        color, 3, 8, 0);
 
-	Rect roi = cv::Rect(cvPoint(cvRound((r->x-0.66*r->width)*scale), cvRound((r->y+2*r->height)*scale)),
-		cvPoint(cvRound((r->x+1.66*r->width)*scale), cvRound((r->y+5.5*r->height)*scale)));
+	Rect roi = cv::Rect(cvPoint(cvRound((r->x-0.66*r->width)*scale), cvRound((r->y+1.5*r->height)*scale)),
+		cvPoint(cvRound((r->x+1.66*r->width)*scale), cvRound((r->y+4.5*r->height)*scale)));
 	
 	roi.x = std::max(roi.x,0);
 	roi.y = std::max(roi.y,0);
@@ -273,7 +273,7 @@ void detectAndDraw( Mat& img, CascadeClassifier& cascade,
 
 	Mat subImage(img, roi);
 	IplImage ipl_img = subImage;
-	//if (i==11)
+	if (i==8)
 	{
 	  Mat output = textDetection ( &ipl_img, 1 );
 	  char filename[100];
