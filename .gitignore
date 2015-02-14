@@ -1,3 +1,6 @@
 *.png
 *.jpg
-
+*.tif
+!samples/*.jpg
+*.d
+*.o
