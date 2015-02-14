@@ -7,18 +7,21 @@ CPP_SRCS += \
 ../batch.cpp \
 ../bibnumber.cpp \
 ../facedetection.cpp \
+../pipeline.cpp \
 ../textdetection.cpp 
 
 OBJS += \
 ./batch.o \
 ./bibnumber.o \
 ./facedetection.o \
+./pipeline.o \
 ./textdetection.o 
 
 CPP_DEPS += \
 ./batch.d \
 ./bibnumber.d \
 ./facedetection.d \
+./pipeline.d \
 ./textdetection.d 
 
 
