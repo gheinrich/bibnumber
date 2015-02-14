@@ -13,10 +13,10 @@ using namespace std;
 using namespace cv;
 
 static void help() {
-	cout
-			<< "\nThis program extracts bib numbers from images.\n"
-					"Usage:\n"
-					"./bibnumber [image file|folder path|csv ground truth file]\n\n" << endl;
+	cout << "\nThis program extracts bib numbers from images.\n"
+			"Usage:\n"
+			"./bibnumber [image file|folder path|csv ground truth file]\n\n"
+			<< endl;
 }
 
 void detectAndDraw(Mat& img, CascadeClassifier& cascade,
@@ -40,8 +40,6 @@ int main(int argc, const char** argv) {
 	size_t tryFlipOptLen = tryFlipOpt.length();
 	string inputName;
 	bool tryflip = false;
-
-	help();
 
 	CascadeClassifier cascade, nestedCascade;
 	double scale = 1;
@@ -83,84 +81,20 @@ int main(int argc, const char** argv) {
 		return -1;
 	}
 
-	if (inputName.empty()
-			|| (isdigit(inputName.c_str()[0]) && inputName.c_str()[1] == '\0')) {
-		capture = cvCaptureFromCAM(
-				inputName.empty() ? 0 : inputName.c_str()[0] - '0');
-		int c = inputName.empty() ? 0 : inputName.c_str()[0] - '0';
-		if (!capture)
-			cout << "Capture from CAM " << c << " didn't work" << endl;
-	} else if (inputName.size()) {
-		image = imread(inputName, 1);
-		if (image.empty()) {
-			capture = cvCaptureFromAVI(inputName.c_str());
-			if (!capture)
-				cout << "Capture from AVI didn't work" << endl;
-		}
-	} else {
-		image = imread("lena.jpg", 1);
-		if (image.empty())
-			cout << "Couldn't read lena.jpg" << endl;
+	if ((inputName.empty()) || (!inputName.size())) {
+		cerr << "ERROR: Missing parameter" << endl;
+		help();
+		return -1;
 	}
 
-
-	if (capture) {
-		cvNamedWindow("result", 1);
-
-		cout << "In capture ..." << endl;
-		for (;;) {
-			IplImage* iplImg = cvQueryFrame(capture);
-			frame = iplImg;
-			if (frame.empty())
-				break;
-			if (iplImg->origin == IPL_ORIGIN_TL)
-				frame.copyTo(frameCopy);
-			else
-				flip(frame, frameCopy, 0);
-
-			detectAndDraw(frameCopy, cascade, nestedCascade, scale, tryflip);
-
-			if (waitKey(10) >= 0)
-				goto _cleanup_;
-		}
-
-		waitKey(0);
-
-		_cleanup_: cvReleaseCapture(&capture);
-
-		cvDestroyWindow("result");
-	} else {
-		cout << "In image read" << endl;
-		if (!image.empty()) {
-			detectAndDraw(image, cascade, nestedCascade, scale, tryflip);
-			waitKey(0);
-		} else if (!inputName.empty()) {
-			/* assume it is a text file containing the
-			 list of the image filenames to be processed - one per line */
-			FILE* f = fopen(inputName.c_str(), "rt");
-			if (f) {
-				char buf[1000 + 1];
-				while (fgets(buf, 1000, f)) {
-					int len = (int) strlen(buf), c;
-					while (len > 0 && isspace(buf[len - 1]))
-						len--;
-					buf[len] = '\0';
-					cout << "file " << buf << endl;
-					image = imread(buf, 1);
-					if (!image.empty()) {
-						detectAndDraw(image, cascade, nestedCascade, scale,
-								tryflip);
-						c = waitKey(0);
-						if (c == 27 || c == 'q' || c == 'Q')
-							break;
-					} else {
-						cerr << "Aw snap, couldn't read image " << buf << endl;
-					}
-				}
-				fclose(f);
-			}
-		}
+	image = imread(inputName, 1);
+	if (image.empty()) {
+		cerr << "ERROR:Failed to open image file" << endl;
+		help();
+		return -1;
 	}
+
+	detectAndDraw(image, cascade, nestedCascade, scale, tryflip);
 
 	return 0;
 }
@@ -174,7 +108,7 @@ void detectAndDraw(Mat& img, CascadeClassifier& cascade,
 			CV_RGB(0, 255, 255), CV_RGB(0, 255, 0), CV_RGB(255, 128, 0), CV_RGB(
 					255, 255, 0), CV_RGB(255, 0, 0), CV_RGB(255, 0, 255) };
 	Mat gray, smallImg(cvRound(img.rows / scale), cvRound(img.cols / scale),
-			CV_8UC1);
+	CV_8UC1);
 
 	cvtColor(img, gray, CV_BGR2GRAY);
 	resize(gray, smallImg, smallImg.size(), 0, 0, INTER_LINEAR);
