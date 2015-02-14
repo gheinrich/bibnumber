@@ -10,7 +10,8 @@
 
 namespace pipeline {
 
-void processImage(cv::Mat& img) {
+int processImage(cv::Mat& img) {
+	int res;
 	const double scale = 1;
 	std::vector<cv::Rect> faces;
 	const static cv::Scalar colors[] = { CV_RGB(0, 0, 255), CV_RGB(0, 128, 255),
@@ -18,7 +19,12 @@ void processImage(cv::Mat& img) {
 						255, 255, 0), CV_RGB(255, 0, 0), CV_RGB(255, 0, 255) };
 
 
-	facedetection::processImage(img, faces);
+	res = facedetection::processImage(img, faces);
+	if (res<0)
+	{
+		std::cerr << "ERROR: Could not proceed to face detection" << std::endl;
+		return -1;
+	}
 
 	int i = 0;
 	for (std::vector<cv::Rect>::const_iterator r = faces.begin(); r != faces.end();
@@ -69,7 +75,9 @@ void processImage(cv::Mat& img) {
 	}
 	cv::imwrite("face-detection.png", img);
 
-}
+	return 0;
 
 }
+
+} /* namespace pipeline */
 

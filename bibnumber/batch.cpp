@@ -6,6 +6,13 @@
 #include <string>
 #include <boost/algorithm/string/predicate.hpp>
 
+#include "opencv2/objdetect/objdetect.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+
+#include "batch.h"
+#include "pipeline.h"
+
 class CSVRow {
 public:
 	std::string const& operator[](std::size_t index) const {
@@ -35,6 +42,7 @@ std::istream& operator>>(std::istream& str, CSVRow& data) {
 	return str;
 }
 
+#if 0
 int batch(const char *path) {
 	if (boost::algorithm::ends_with(path, ".csv")) {
 		std::ifstream file(path);
@@ -47,3 +55,21 @@ int batch(const char *path) {
 
 	return 0;
 }
+#endif
+
+namespace batch {
+
+int process(std::string inputName) {
+	cv::Mat image = cv::imread(inputName, 1);
+	if (image.empty()) {
+		std::cerr << "ERROR:Failed to open image file" << std::endl;
+		return -1;
+	}
+
+	//detectAndDraw(image, cascade, nestedCascade, scale, tryflip);
+	pipeline::processImage(image);
+	return 0;
+}
+
+} /* namespace batch */
+

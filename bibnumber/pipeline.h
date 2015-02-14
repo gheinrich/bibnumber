@@ -5,7 +5,7 @@
 
 namespace pipeline
 {
-	void processImage(cv::Mat& img);
+	int processImage(cv::Mat& img);
 }
 
 #endif /* #ifndef PIPELINE_H */
