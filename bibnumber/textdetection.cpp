@@ -34,7 +34,7 @@
 #include <utility>
 #include <algorithm>
 #include <vector>
-#include "TextDetection.h"
+#include "textdetection.h"
 
 #include <tesseract/baseapi.h>
 #include <tesseract/strngs.h>

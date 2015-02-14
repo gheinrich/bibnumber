@@ -4,19 +4,22 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
-../TextDetection.cpp \
 ../batch.cpp \
-../bibnumber.cpp 
+../bibnumber.cpp \
+../facedetection.cpp \
+../textdetection.cpp 
 
 OBJS += \
-./TextDetection.o \
 ./batch.o \
-./bibnumber.o 
+./bibnumber.o \
+./facedetection.o \
+./textdetection.o 
 
 CPP_DEPS += \
-./TextDetection.d \
 ./batch.d \
-./bibnumber.d 
+./bibnumber.d \
+./facedetection.d \
+./textdetection.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
