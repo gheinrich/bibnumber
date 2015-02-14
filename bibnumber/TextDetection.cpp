@@ -23,13 +23,6 @@
 #include <boost/graph/floyd_warshall_shortest.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/io.hpp>
-/*#include <graph/adjacency_list.hpp>
- #include <graph/graph_traits.hpp>
- #include <graph/connected_components.hpp>
- #include <unordered_map.hpp>
- #include <graph/floyd_warshall_shortest.hpp>
- #include <numeric/ublas/matrix.hpp>
- #include <numeric/ublas/io.hpp> */
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -50,6 +43,20 @@
 #define PI 3.14159265
 
 #define MAX_TORSO_TO_BIB_RATIO_X (4)
+
+#define DBG_CHAINS (1<<0)
+#define DBG_TXT_ORIENT (1<<1)
+
+//#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_CHAINS )
+#define DBG_MASK   ( DBG_TXT_ORIENT )
+
+#define DBG(mask,x) do { \
+  if (DBG_MASK & (mask)) { std::cout << x ; } \
+} while (0)
+
+#define DBGL(mask,x) do { \
+  if (DBG_MASK & (mask)) { std::cout << x << std::endl; } \
+} while (0)
 
 std::vector<std::pair<CvPoint, CvPoint> > findBoundingBoxes(
 		std::vector<std::vector<Point2d> > & components,
@@ -101,7 +108,7 @@ std::vector<std::vector<CvPoint> > findBoundingTrapeze(
 				rightmostComponent = *cit;
 			}
 		}
-		if (maxx - minx > output->width / MAX_TORSO_TO_BIB_RATIO_X) {
+		if (1) /*(maxx - minx > output->width / MAX_TORSO_TO_BIB_RATIO_X)*/ {
 			CvPoint topLeft = cvPoint(compBB[leftmostComponent].first.x,
 					compBB[leftmostComponent].first.y);
 			CvPoint bottomLeft = cvPoint(compBB[leftmostComponent].first.x,
@@ -117,10 +124,10 @@ std::vector<std::vector<CvPoint> > findBoundingTrapeze(
 			trapeze.push_back(bottomRight);
 			bt.push_back(trapeze);
 
-			std::cout << "Trapeze: " << "(" << topLeft.x << "," << topLeft.y
+			DBGL(DBG_TXT_ORIENT, "Trapeze: " << "(" << topLeft.x << "," << topLeft.y
 					<< "),(" << bottomLeft.x << "," << bottomLeft.y << "),("
 					<< topRight.x << "," << topRight.y << "),(" << bottomRight.x
-					<< "," << bottomRight.y << ")" << std::endl;
+					<< "," << bottomRight.y << ")" );
 		}
 	}
 	return bt;
@@ -274,7 +281,7 @@ void renderComponentsWithBoxes(IplImage * SWTImage,
 		asprintf(&txt,"%d",count);
 		cv::Mat tmp_mat = cv::Mat(output);
 		cv::rectangle(tmp_mat, it->first, it->second, c);
-		cv::putText(tmp_mat, txt, it->first, cv::FONT_HERSHEY_SIMPLEX, 0.2, c);
+		cv::putText(tmp_mat, txt, it->first, cv::FONT_HERSHEY_SIMPLEX, 0.3, c);
 		free(txt);
 		count++;
 	}
@@ -321,38 +328,55 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 	cvReleaseImage(&out);
 	cvReleaseImage(&outTemp);
 
-	for (std::vector<std::vector<CvPoint> >::iterator it = bt.begin();
-			it != bt.end(); it++) {
-		CvPoint topLeft = (*it)[0];
-		CvPoint bottomLeft = (*it)[1];
-		CvPoint topRight = (*it)[2];
-		CvPoint bottomRight = (*it)[3];
+	for (unsigned int i=0; i<bt.size(); i++) {
+		CvPoint topLeft = bt[i][0];
+		CvPoint bottomLeft = bt[i][1];
+		CvPoint bottomRight = bt[i][3];
+
+		if (bottomRight.x - topLeft.x < output->width / MAX_TORSO_TO_BIB_RATIO_X)
+			continue;
 
 		double theta_rad = atan2(bottomRight.y - bottomLeft.y,
 				bottomRight.x - bottomLeft.x);
 		double theta_deg = (theta_rad / PI) * 180;
 
-		printf("%f degrees\n", theta_deg);
+		DBGL(DBG_TXT_ORIENT, "Orientation: " << theta_deg << " degrees");
+
+		/* create copy of input image including only the selected components */
+		cv::Mat inputMat = cv::Mat(input);
+		cv::Mat componentsImg = cv::Mat::zeros(inputMat.rows, inputMat.cols,
+						inputMat.type());
+		for (unsigned int j=0; j<chains[i].components.size(); j++) {
+			int component_id = chains[i].components[j];
+			cv::Rect roi = cv::Rect(
+					compBB[component_id].first.x,
+					compBB[component_id].first.y,
+					compBB[component_id].second.x-compBB[component_id].first.x,
+					compBB[component_id].second.y-compBB[component_id].first.y);
+			cv::Mat componentRoi = inputMat(roi);
+
+			//componentRoi.copyTo(componentsImg(roi));
+			cv::threshold(componentRoi, componentsImg(roi), 0 // the value doesn't matter for Otsu thresholding
+										, 255 // we could choose any non-zero value. 255 (white) makes it easy to see the binary image
+										, cv::THRESH_OTSU | cv::THRESH_BINARY_INV);
+		}
+		cv::imwrite("bib-components.png",componentsImg);
 
 		cv::Mat rotMatrix = cv::getRotationMatrix2D(bottomLeft, theta_deg, 1.0);
 
-		cv::Mat inputMat = cv::Mat(input);
 		cv::Mat rotatedMat = cv::Mat::zeros(inputMat.rows, inputMat.cols,
 				inputMat.type());
-		cv::warpAffine(inputMat, rotatedMat, rotMatrix, rotatedMat.size());
+		cv::warpAffine(componentsImg, rotatedMat, rotMatrix, rotatedMat.size());
 
 		CvPoint newTopLeft = cvPoint(std::max(0, topLeft.x - 4),
 				std::max(0, topLeft.y - 4));
 		CvPoint newBottomRight = cvPoint(
-				std::min(inputMat.cols, bottomRight.x + 2),
+				std::min(inputMat.cols, bottomRight.x + 4),
 				std::min(inputMat.rows, bottomLeft.y + 2));
 		cv::Rect roi = cv::Rect(newTopLeft, newBottomRight);
 		cv::Mat mat_roi = rotatedMat(roi);
 
-		cv::Mat mat;
-		cv::threshold(mat_roi, mat, 0 // the value doesn't matter for Otsu thresholding
-				, 255 // we could choose any non-zero value. 255 (white) makes it easy to see the binary image
-				, cv::THRESH_OTSU | cv::THRESH_BINARY_INV);
+		cv::Mat mat = mat_roi;
 		cv::imwrite("bib-tess-input.png", mat);
 
 		// Pass it to Tesseract API
@@ -986,8 +1010,9 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 								* (colorAverages[i].y - colorAverages[j].y)
 						+ (colorAverages[i].z - colorAverages[j].z)
 								* (colorAverages[i].z - colorAverages[j].z);
+				DBGL(DBG_CHAINS,"Pair (" << i << ":" << j << "): dist=" << dist << ",colorDist=" << colorDist);
 				if (dist
-						< 9
+						< 3
 								* (float) (std::max(
 										std::min(compDimensions[i].x,
 												compDimensions[i].y),
@@ -998,7 +1023,7 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 												compDimensions[i].y),
 										std::min(compDimensions[j].x,
 												compDimensions[j].y)))
-						&& colorDist < 1600) {
+						&& colorDist < 6000) {
 					Chain c;
 					c.p = i;
 					c.q = j;
@@ -1032,6 +1057,16 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 			}
 		}
 	}
+
+	/* print pairs */
+	for (unsigned int j=0; j < chains.size(); j++) {
+		DBG(DBG_CHAINS, "Pair" << j <<":" );
+		for (unsigned int i = 0; i < chains[j].components.size(); i++) {
+			DBG(DBG_CHAINS, chains[j].components[i] << ",");
+		}
+		DBGL(DBG_CHAINS, "");
+	}
+
 	std::cout << chains.size() << " eligible pairs" << std::endl;
 	std::sort(chains.begin(), chains.end(), &chainSortDist);
 
@@ -1275,6 +1310,17 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 		}
 	}
 	chains = newchains;
-	std::cout << chains.size() << " chains after merging" << std::endl;
+
+	/* print chains */
+	for (unsigned int j=0; j < chains.size(); j++) {
+		DBG(DBG_CHAINS, "Chain" << j <<":" );
+		for (unsigned int i = 0; i < chains[j].components.size(); i++) {
+						DBG(DBG_CHAINS, chains[j].components[i] << ",");
+		}
+		DBGL(DBG_CHAINS, "");
+	}
+
+	DBG(DBG_CHAINS, chains.size() << " chains after merging");
+
 	return chains;
 }
