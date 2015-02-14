@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 
 #include "opencv2/objdetect/objdetect.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -57,18 +58,49 @@ int batch(const char *path) {
 }
 #endif
 
-namespace batch {
+int processSingleImage(std::string fileName) {
+	int res;
 
-int process(std::string inputName) {
-	cv::Mat image = cv::imread(inputName, 1);
+	std::cout << "Processing file " << fileName << std::endl;
+
+	std::vector<std::string> bibNumbers;
+	/* open image */
+	cv::Mat image = cv::imread(fileName, 1);
 	if (image.empty()) {
 		std::cerr << "ERROR:Failed to open image file" << std::endl;
 		return -1;
 	}
 
-	//detectAndDraw(image, cascade, nestedCascade, scale, tryflip);
-	pipeline::processImage(image);
-	return 0;
+	/* process image */
+	res = pipeline::processImage(image, bibNumbers);
+	if (res < 0) {
+		std::cerr << "ERROR: Could not process image" << std::endl;
+		return -1;
+	}
+
+	/* display result */
+	for (std::vector<std::string>::iterator it = bibNumbers.begin();
+			it != bibNumbers.end(); ++it) {
+		std::string s = *it;
+		boost::algorithm::trim(s);
+		if (s.size() > 0) {
+			std::cout << "Read: " << s << std::endl;
+		}
+	}
+}
+
+namespace batch {
+
+int process(std::string inputName) {
+	int res;
+
+	if ( (boost::algorithm::ends_with(inputName,".jpg"))
+			|| (boost::algorithm::ends_with(inputName,".png")) )
+	{
+		res = processSingleImage(inputName);
+	}
+
+	return res;
 }
 
 } /* namespace batch */

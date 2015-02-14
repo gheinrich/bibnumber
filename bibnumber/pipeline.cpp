@@ -10,7 +10,7 @@
 
 namespace pipeline {
 
-int processImage(cv::Mat& img) {
+int processImage(cv::Mat& img, std::vector<std::string>& bibNumbers) {
 	int res;
 	const double scale = 1;
 	std::vector<cv::Rect> faces;
@@ -67,7 +67,9 @@ int processImage(cv::Mat& img) {
 		cv::Mat subImage(img, roi);
 		IplImage ipl_img = subImage;
 		if (1) {
-			cv::Mat output = textDetection(&ipl_img, 1);
+			std::string bibNumber;
+			textDetection(&ipl_img, 1, bibNumber);
+			bibNumbers.push_back(bibNumber);
 			char filename[100];
 			sprintf(filename, "torso-%d.png", i);
 			cv::imwrite(filename, subImage);

@@ -291,7 +291,8 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		std::vector<std::vector<Point2d> > & components,
 		std::vector<Chain> & chains,
 		std::vector<std::pair<Point2d, Point2d> > & compBB, IplImage * output,
-		IplImage * input) {
+		IplImage * input,
+		std::string& text) {
 	// keep track of included components
 	std::vector<bool> included;
 	included.reserve(components.size());
@@ -388,7 +389,8 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		tess.SetImage((uchar*) mat.data, mat.cols, mat.rows, 1, mat.step1());
 		// Get the text
 		char* out = tess.GetUTF8Text();
-		std::cout << "Mat text: " << out << std::endl;
+		text.assign(out);
+		std::cout << "Mat text: " << text << std::endl;
 
 		cv::rectangle(rotatedMat, roi, cvScalar(0, 0, 255), 2);
 		cv::imwrite("bib-rotated.png", rotatedMat);
@@ -426,7 +428,7 @@ void renderChains(IplImage * SWTImage,
 	cvReleaseImage(&outTemp);
 }
 
-IplImage * textDetection(IplImage * input, bool dark_on_light) {
+IplImage * textDetection(IplImage * input, bool dark_on_light, std::string &text) {
 	assert(input->depth == IPL_DEPTH_8U);
 	assert(input->nChannels == 3);
 	std::cout << "---------------------------------------- " << std::endl;
@@ -511,7 +513,7 @@ IplImage * textDetection(IplImage * input, bool dark_on_light) {
 
 	IplImage * output = cvCreateImage(cvGetSize(input), IPL_DEPTH_8U, 3);
 	renderChainsWithBoxes(SWTImage, validComponents, chains, compBB, output,
-			grayImage);
+			grayImage, text);
 	cvSaveImage("text-boxes.png", output);
 	cvReleaseImage(&output);
 

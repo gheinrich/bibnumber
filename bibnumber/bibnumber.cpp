@@ -18,7 +18,6 @@ int main(int argc, const char** argv) {
 	string inputName;
 
 	for (int i = 1; i < argc; i++) {
-		cout << "Processing " << i << " " << argv[i] << endl;
 		inputName.assign(argv[i]);
 	}
 
