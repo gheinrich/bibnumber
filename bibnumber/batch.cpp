@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/trim.hpp>
+#include <boost/filesystem.hpp>
 
 #include "opencv2/objdetect/objdetect.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -13,6 +13,8 @@
 
 #include "batch.h"
 #include "pipeline.h"
+
+namespace fs = boost::filesystem;
 
 class CSVRow {
 public:
@@ -30,7 +32,7 @@ public:
 		std::string cell;
 
 		m_data.clear();
-		while (std::getline(lineStream, cell, ',')) {
+		while (std::getline(lineStream, cell, ';')) {
 			m_data.push_back(cell);
 		}
 	}
@@ -58,12 +60,12 @@ int batch(const char *path) {
 }
 #endif
 
-int processSingleImage(std::string fileName) {
+static int processSingleImage(std::string fileName,
+		std::vector<int>& bibNumbers) {
 	int res;
 
 	std::cout << "Processing file " << fileName << std::endl;
 
-	std::vector<std::string> bibNumbers;
 	/* open image */
 	cv::Mat image = cv::imread(fileName, 1);
 	if (image.empty()) {
@@ -79,14 +81,16 @@ int processSingleImage(std::string fileName) {
 	}
 
 	/* display result */
-	for (std::vector<std::string>::iterator it = bibNumbers.begin();
+	for (std::vector<int>::iterator it = bibNumbers.begin();
 			it != bibNumbers.end(); ++it) {
-		std::string s = *it;
-		boost::algorithm::trim(s);
-		if (s.size() > 0) {
-			std::cout << "Read: " << s << std::endl;
-		}
+		std::cout << "Read: " << *it << std::endl;
 	}
+
+	return res;
+}
+
+static int exists(std::vector<int> arr, int item) {
+	return std::find(arr.begin(), arr.end(), item) != arr.end();
 }
 
 namespace batch {
@@ -94,10 +98,74 @@ namespace batch {
 int process(std::string inputName) {
 	int res;
 
-	if ( (boost::algorithm::ends_with(inputName,".jpg"))
-			|| (boost::algorithm::ends_with(inputName,".png")) )
-	{
-		res = processSingleImage(inputName);
+	if (!fs::exists(inputName)) {
+		std::cerr << "ERROR: Not found: " << inputName << std::endl;
+		return -1;
+	}
+
+	if (fs::is_regular_file(inputName)) {
+		if ((boost::algorithm::ends_with(inputName, ".jpg"))
+				|| (boost::algorithm::ends_with(inputName, ".png"))) {
+			std::vector<int> bibNumbers;
+			res = processSingleImage(inputName, bibNumbers);
+		} else if (boost::algorithm::ends_with(inputName, ".csv")) {
+
+			int true_positives = 0;
+			int false_positives = 0;
+			int relevant = 0;
+
+			std::ifstream file(inputName.c_str());
+			fs::path pathname(inputName);
+			fs::path dirname = pathname.parent_path();
+
+			CSVRow row;
+			while (file >> row) {
+				std::string filename = row[0];
+				std::vector<int> groundTruthNumbers;
+				std::vector<int> bibNumbers;
+
+				fs::path file(filename);
+				fs::path full_path = dirname / file;
+
+				processSingleImage(full_path.string(), bibNumbers);
+
+				for (unsigned int i = 1; i < row.size(); i++)
+					groundTruthNumbers.push_back(atoi(row[i].c_str()));
+				relevant += groundTruthNumbers.size();
+
+				for (unsigned int i = 0; i < bibNumbers.size(); i++) {
+					if (exists(groundTruthNumbers, bibNumbers[i])) {
+						std::cout << "Match " << bibNumbers[i] << std::endl;
+						true_positives++;
+					} else {
+						std::cout << "Mismatch " << bibNumbers[i] << std::endl;
+						false_positives++;
+					}
+				}
+			}
+
+			std::cout.setf(std::ios_base::fixed, std::ios_base::floatfield);
+			std::cout.precision(2);
+
+			float precision = (float) true_positives
+					/ (float) (true_positives + false_positives);
+			float recall = (float) true_positives / (float) (relevant);
+			float fscore = 2 * precision * recall / (precision + recall);
+
+			std::cout << "precision=" << true_positives << "/"
+					<< true_positives + false_positives << "=" << precision
+					<< std::endl;
+			std::cout << "recall=" << true_positives << "/" << relevant << "="
+					<< recall << std::endl;
+			std::cout << "F-score=" << fscore << std::endl;
+
+		}
+	} else if (fs::is_directory(inputName)) {
+		std::cout << "Processing directory " << inputName << std::endl;
+		return -1;
+	} else {
+		std::cerr << "ERROR: unknown path type " << inputName << std::endl;
+		return -1;
 	}
 
 	return res;

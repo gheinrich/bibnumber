@@ -2,6 +2,8 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
+#include <boost/algorithm/string/trim.hpp>
+
 #include "pipeline.h"
 #include "facedetection.h"
 #include "textdetection.h"
@@ -10,7 +12,7 @@
 
 namespace pipeline {
 
-int processImage(cv::Mat& img, std::vector<std::string>& bibNumbers) {
+int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 	int res;
 	const double scale = 1;
 	std::vector<cv::Rect> faces;
@@ -66,10 +68,14 @@ int processImage(cv::Mat& img, std::vector<std::string>& bibNumbers) {
 
 		cv::Mat subImage(img, roi);
 		IplImage ipl_img = subImage;
-		if (1) {
+		if ( //(i==8) &&
+			(1)) {
 			std::string bibNumber;
 			textDetection(&ipl_img, 1, bibNumber);
-			bibNumbers.push_back(bibNumber);
+			if (bibNumber.size()>0) {
+				boost::algorithm::trim(bibNumber);
+				bibNumbers.push_back(atoi(bibNumber.c_str()));
+			}
 			char filename[100];
 			sprintf(filename, "torso-%d.png", i);
 			cv::imwrite(filename, subImage);

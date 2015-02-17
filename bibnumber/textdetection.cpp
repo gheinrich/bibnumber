@@ -47,8 +47,8 @@
 #define DBG_CHAINS (1<<0)
 #define DBG_TXT_ORIENT (1<<1)
 
-//#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_CHAINS )
-#define DBG_MASK   ( DBG_TXT_ORIENT )
+#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_CHAINS )
+//#define DBG_MASK   ( DBG_TXT_ORIENT )
 
 #define DBG(mask,x) do { \
   if (DBG_MASK & (mask)) { std::cout << x ; } \
@@ -58,8 +58,12 @@
   if (DBG_MASK & (mask)) { std::cout << x << std::endl; } \
 } while (0)
 
+static inline int square(int x)
+{
+	return x*x;
+}
+
 std::vector<std::pair<CvPoint, CvPoint> > findBoundingBoxes(
-		std::vector<std::vector<Point2d> > & components,
 		std::vector<Chain> & chains,
 		std::vector<std::pair<Point2d, Point2d> > & compBB, IplImage * output) {
 	std::vector<std::pair<CvPoint, CvPoint> > bb;
@@ -86,7 +90,6 @@ std::vector<std::pair<CvPoint, CvPoint> > findBoundingBoxes(
 }
 
 std::vector<std::vector<CvPoint> > findBoundingTrapeze(
-		std::vector<std::vector<Point2d> > & components,
 		std::vector<Chain> & chains,
 		std::vector<std::pair<Point2d, Point2d> > & compBB, IplImage * output) {
 	std::vector<std::vector<CvPoint> > bt;
@@ -318,10 +321,10 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 			<< std::endl;
 	renderComponents(SWTImage, componentsRed, outTemp);
 	std::vector<std::pair<CvPoint, CvPoint> > bb;
-	bb = findBoundingBoxes(components, chains, compBB, outTemp);
+	bb = findBoundingBoxes(chains, compBB, outTemp);
 
 	std::vector<std::vector<CvPoint> > bt;
-	bt = findBoundingTrapeze(components, chains, compBB, outTemp);
+	bt = findBoundingTrapeze(chains, compBB, outTemp);
 
 	IplImage * out = cvCreateImage(cvGetSize(output), IPL_DEPTH_8U, 1);
 	cvConvertScale(outTemp, out, 255, 0);
@@ -815,10 +818,6 @@ void filterComponents(IplImage * SWTImage,
 		}
 
 		float area = length * width;
-		float rminx = (float) minx;
-		float rmaxx = (float) maxx;
-		float rminy = (float) miny;
-		float rmaxy = (float) maxy;
 		// compute the rotated bounding box
 		float increment = 1. / 36.;
 		for (float theta = increment * PI; theta < PI / 2.0;
@@ -866,8 +865,8 @@ void filterComponents(IplImage * SWTImage,
 			(denseRepr[pit->x - minx])[pit->y - miny] = 1;
 		}
 		// create graph representing components
-		const int num_nodes = it->size();
-		/*
+		/*const int num_nodes = it->size();
+
 		 E edges[] = { E(0,2),
 		 E(1,1), E(1,3), E(1,4),
 		 E(2,1), E(2,3),
@@ -998,34 +997,31 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 	for (unsigned int i = 0; i < components.size(); i++) {
 		for (unsigned int j = i + 1; j < components.size(); j++) {
 			// TODO add color metric
+			float compMediansRatio = compMedians[i] / compMedians[j];
+			float compDimensionsRatio = (float)compDimensions[i].y / compDimensions[j].y;
+			float dist = square(compCenters[i].x - compCenters[j].x)
+									+ square(compCenters[i].y - compCenters[j].y);
+			float colorDist = square(colorAverages[i].x - colorAverages[j].x)
+									+ square(colorAverages[i].y - colorAverages[j].y)
+									+ square(colorAverages[i].z - colorAverages[j].z);
+			float maxDimDist = (float)square(std::max(
+									std::min(compDimensions[i].x,
+											compDimensions[i].y),
+									std::min(compDimensions[j].x,
+											compDimensions[j].y)));
+			DBGL(DBG_CHAINS,"Pair (" << i << ":" << j
+					<< "): dist=" << dist
+					<< " colorDist=" << colorDist
+					<< " maxDimDist=" << maxDimDist
+					<< " compMediansRatio=" << compMediansRatio
+					<< " compDimensionsRatio=" << compDimensionsRatio);
+
 			if ((compMedians[i] / compMedians[j] <= 2.0
 					|| compMedians[j] / compMedians[i] <= 2.0)
-					&& (compDimensions[i].y / compDimensions[j].y <= 2.0
-							|| compDimensions[j].y / compDimensions[i].y <= 2.0)) {
-				float dist = (compCenters[i].x - compCenters[j].x)
-						* (compCenters[i].x - compCenters[j].x)
-						+ (compCenters[i].y - compCenters[j].y)
-								* (compCenters[i].y - compCenters[j].y);
-				float colorDist = (colorAverages[i].x - colorAverages[j].x)
-						* (colorAverages[i].x - colorAverages[j].x)
-						+ (colorAverages[i].y - colorAverages[j].y)
-								* (colorAverages[i].y - colorAverages[j].y)
-						+ (colorAverages[i].z - colorAverages[j].z)
-								* (colorAverages[i].z - colorAverages[j].z);
-				DBGL(DBG_CHAINS,"Pair (" << i << ":" << j << "): dist=" << dist << ",colorDist=" << colorDist);
-				if (dist
-						< 3
-								* (float) (std::max(
-										std::min(compDimensions[i].x,
-												compDimensions[i].y),
-										std::min(compDimensions[j].x,
-												compDimensions[j].y)))
-								* (float) (std::max(
-										std::min(compDimensions[i].x,
-												compDimensions[i].y),
-										std::min(compDimensions[j].x,
-												compDimensions[j].y)))
-						&& colorDist < 6000) {
+					&& (compDimensionsRatio > 0.5)
+					&& (compDimensionsRatio < 2) ) {
+
+				if (dist < 3 * maxDimDist /*&& colorDist < 6000*/) {
 					Chain c;
 					c.p = i;
 					c.q = j;
