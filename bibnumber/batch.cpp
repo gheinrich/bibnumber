@@ -80,6 +80,11 @@ static int processSingleImage(std::string fileName,
 		return -1;
 	}
 
+	/* remove duplicates */
+	std::sort( bibNumbers.begin(), bibNumbers.end() );
+	bibNumbers.erase( std::unique( bibNumbers.begin(), bibNumbers.end() ),
+							bibNumbers.end() );
+
 	/* display result */
 	for (std::vector<int>::iterator it = bibNumbers.begin();
 			it != bibNumbers.end(); ++it) {
