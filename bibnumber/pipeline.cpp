@@ -68,7 +68,7 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 
 		cv::Mat subImage(img, roi);
 		IplImage ipl_img = subImage;
-		if ( //(i==8) &&
+		if ( //(i==6) &&
 			(1)) {
 			std::string bibNumber;
 			textDetection(&ipl_img, 1, bibNumber);

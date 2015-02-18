@@ -23,6 +23,7 @@
 #include <boost/graph/floyd_warshall_shortest.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/io.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -392,8 +393,24 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		tess.SetImage((uchar*) mat.data, mat.cols, mat.rows, 1, mat.step1());
 		// Get the text
 		char* out = tess.GetUTF8Text();
-		text.assign(out);
-		std::cout << "Mat text: " << text << std::endl;
+		if (strlen(out)>0)
+		{
+			std::string s_out(out);
+			boost::algorithm::trim(s_out);
+			if (1) //(s_out.size() == chains[i].components.size())
+			{
+				text.assign(s_out);
+				std::cout << "Mat text: " << text << std::endl;
+			}
+			else
+			{
+				std::cerr << "Text size mismatch: expected "
+						<< chains[i].components.size()
+						<< " digits, got '" <<  s_out
+						<< "' (" << s_out.size()
+						<< " digits)" << std::endl;
+			}
+		}
 
 		cv::rectangle(rotatedMat, roi, cvScalar(0, 0, 255), 2);
 		cv::imwrite("bib-rotated.png", rotatedMat);
@@ -783,7 +800,7 @@ void componentStats(IplImage * SWTImage, const std::vector<Point2d> & component,
 	std::sort(temp.begin(), temp.end());
 	median = temp[temp.size() / 2];
 }
-
+#define NO_FILTER
 void filterComponents(IplImage * SWTImage,
 		std::vector<std::vector<Point2d> > & components,
 		std::vector<std::vector<Point2d> > & validComponents,
@@ -803,11 +820,12 @@ void filterComponents(IplImage * SWTImage,
 		int minx, miny, maxx, maxy;
 		componentStats(SWTImage, (*it), mean, variance, median, minx, miny,
 				maxx, maxy);
-
+#ifndef NO_FILTER
 		// check if variance is less than half the mean
 		if (variance > 0.5 * mean) {
 			continue;
 		}
+#endif
 
 		float length = (float) (maxx - minx + 1);
 		float width = (float) (maxy - miny + 1);
@@ -843,6 +861,7 @@ void filterComponents(IplImage * SWTImage,
 				width = wtemp;
 			}
 		}
+
 		// check if the aspect ratio is between 1/10 and 10
 		if (length / width < 1. / 10. || length / width > 10.) {
 			continue;
