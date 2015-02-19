@@ -397,7 +397,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		{
 			std::string s_out(out);
 			boost::algorithm::trim(s_out);
-			if (1) //(s_out.size() == chains[i].components.size())
+			if (s_out.size() == chains[i].components.size())
 			{
 				text.assign(s_out);
 				std::cout << "Mat text: " << text << std::endl;
@@ -1323,9 +1323,15 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 	for (std::vector<Chain>::iterator cit = chains.begin(); cit != chains.end();
 			cit++) {
 		if (cit->components.size() >= 3) {
+			/* remove duplicates */
+			std::sort( cit->components.begin(), cit->components.end() );
+			cit->components.erase( std::unique( cit->components.begin(),
+					cit->components.end() ),
+					cit->components.end() );
 			newchains.push_back(*cit);
 		}
 	}
+
 	chains = newchains;
 
 	/* print chains */
