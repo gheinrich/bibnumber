@@ -47,8 +47,10 @@
 
 #define DBG_CHAINS (1<<0)
 #define DBG_TXT_ORIENT (1<<1)
+#define DBG_COMPONENTS (1<<2)
 
-#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_CHAINS )
+#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_COMPONENTS )
+//#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_CHAINS )
 //#define DBG_MASK   ( DBG_TXT_ORIENT )
 
 #define DBG(mask,x) do { \
@@ -488,10 +490,13 @@ IplImage * textDetection(IplImage * input, bool dark_on_light, std::string &text
 	}
 	strokeWidthTransform(edgeImage, gradientX, gradientY, dark_on_light,
 			SWTImage, rays);
+	cvSaveImage("SWT_0.png", SWTImage);
 	SWTMedianFilter(SWTImage, rays);
+	cvSaveImage("SWT_1.png", SWTImage);
 
 	IplImage * output2 = cvCreateImage(cvGetSize(input), IPL_DEPTH_32F, 1);
 	normalizeImage(SWTImage, output2);
+	cvSaveImage("SWT_2.png", output2);
 	IplImage * saveSWT = cvCreateImage(cvGetSize(input), IPL_DEPTH_8U, 1);
 	cvConvertScale(output2, saveSWT, 255, 0);
 	cvSaveImage("SWT.png", saveSWT);
@@ -626,6 +631,7 @@ void strokeWidthTransform(IplImage * edgeImage, IplImage * gradientX,
 																- (float) r.p.y)
 																* ((float) r.q.y
 																		- (float) r.p.y));
+								//if (length > 20) break;
 								for (std::vector<Point2d>::iterator pit =
 										points.begin(); pit != points.end();
 										pit++) {
@@ -961,6 +967,16 @@ void filterComponents(IplImage * SWTImage,
 
 	std::cout << "After filtering " << validComponents.size() << " components"
 			<< std::endl;
+
+	for (unsigned int i = 0; i < validComponents.size(); i++) {
+		DBGL(DBG_COMPONENTS,"Component (" << i
+							<< "): dim=" << compDimensions[i].x << "*" << compDimensions[i].y
+							<< " median=" << compMedians[i]
+							<< " bb=(" << compBB[i].first.x << "," << compBB[i].first.y
+							<< ")->(" << compBB[i].second.x << "," << compBB[i].second.y << ")"
+			);
+
+	}
 }
 
 bool sharesOneEnd(Chain c0, Chain c1) {
