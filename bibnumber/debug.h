@@ -8,6 +8,7 @@ extern int debug_mask;
 #define DBG_CHAINS (1<<0)
 #define DBG_TXT_ORIENT (1<<1)
 #define DBG_COMPONENTS (1<<2)
+#define DBG_TEXTREC (1<<3)
 #define DBG_ALL (0xFFFFFFFF)
 #define DBG_NONE (0)
 

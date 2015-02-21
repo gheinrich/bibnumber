@@ -311,8 +311,8 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 	}
 	IplImage * outTemp = cvCreateImage(cvGetSize(output), IPL_DEPTH_32F, 1);
 
-	std::cout << componentsRed.size() << " components after chaining"
-			<< std::endl;
+	DBGL(DBG_CHAINS, componentsRed.size() << " components after chaining" );
+
 	renderComponents(SWTImage, componentsRed, outTemp);
 	std::vector<std::pair<CvPoint, CvPoint> > bb;
 	bb = findBoundingBoxes(chains, compBB, outTemp);
@@ -393,15 +393,15 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 			if (s_out.size() == chains[i].components.size())
 			{
 				text.assign(s_out);
-				std::cout << "Mat text: " << text << std::endl;
+				DBGL(DBG_TEXTREC, "Mat text: ");
 			}
 			else
 			{
-				std::cerr << "Text size mismatch: expected "
+				DBGL(DBG_TEXTREC, "Text size mismatch: expected "
 						<< chains[i].components.size()
 						<< " digits, got '" <<  s_out
 						<< "' (" << s_out.size()
-						<< " digits)" << std::endl;
+						<< " digits)");
 			}
 		}
 
@@ -433,8 +433,7 @@ void renderChains(IplImage * SWTImage,
 			componentsRed.push_back(components[i]);
 		}
 	}
-	std::cout << componentsRed.size() << " components after chaining"
-			<< std::endl;
+	DBGL(DBG_CHAINS, componentsRed.size() << " components after chaining" );
 	IplImage * outTemp = cvCreateImage(cvGetSize(output), IPL_DEPTH_32F, 1);
 	renderComponents(SWTImage, componentsRed, outTemp);
 	cvConvertScale(outTemp, output, 255, 0);
@@ -444,9 +443,6 @@ void renderChains(IplImage * SWTImage,
 IplImage * textDetection(IplImage * input, bool dark_on_light, std::string &text) {
 	assert(input->depth == IPL_DEPTH_8U);
 	assert(input->nChannels == 3);
-	std::cout << "---------------------------------------- " << std::endl;
-	std::cout << "Running textDetection with dark_on_light " << dark_on_light
-			<< std::endl;
 	// Convert to grayscale
 	IplImage * grayImage = cvCreateImage(cvGetSize(input), IPL_DEPTH_8U, 1);
 	cvCvtColor(input, grayImage, CV_RGB2GRAY);
@@ -753,8 +749,9 @@ std::vector<std::vector<Point2d> > findLegallyConnectedComponents(
 
 	std::vector<std::vector<Point2d> > components;
 	components.reserve(num_comp);
-	std::cout << "Before filtering, " << num_comp << " components and "
-			<< num_vertices << " vertices" << std::endl;
+	DBGL(DBG_COMPONENTS, "Before filtering, "
+			<< num_comp << " components and "
+			<< num_vertices << " vertices");
 	for (int j = 0; j < num_comp; j++) {
 		std::vector<Point2d> tmp;
 		components.push_back(tmp);
@@ -956,8 +953,7 @@ void filterComponents(IplImage * SWTImage,
 	validComponents.reserve(tempComp.size());
 	compBB.reserve(tempComp.size());
 
-	std::cout << "After filtering " << validComponents.size() << " components"
-			<< std::endl;
+	DBGL(DBG_COMPONENTS, "After filtering " << validComponents.size() << " components");
 
 	for (unsigned int i = 0; i < validComponents.size(); i++) {
 		DBGL(DBG_COMPONENTS,"Component (" << i
@@ -1099,7 +1095,8 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 		DBGL(DBG_CHAINS, "");
 	}
 
-	std::cout << chains.size() << " eligible pairs" << std::endl;
+	DBGL(DBG_CHAINS, chains.size() << " eligible pairs");
+
 	std::sort(chains.begin(), chains.end(), &chainSortDist);
 
 	const float strictness = PI / 6.0;

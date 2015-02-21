@@ -13,6 +13,7 @@
 
 #include "batch.h"
 #include "pipeline.h"
+#include "debug.h"
 
 namespace fs = boost::filesystem;
 
@@ -86,10 +87,12 @@ static int processSingleImage(std::string fileName,
 							bibNumbers.end() );
 
 	/* display result */
+	std::cout << "Read: [";
 	for (std::vector<int>::iterator it = bibNumbers.begin();
 			it != bibNumbers.end(); ++it) {
-		std::cout << "Read: " << *it << std::endl;
+		std::cout << " " << *it;
 	}
+	std::cout << "]" << std::endl;
 
 	return res;
 }
@@ -118,6 +121,9 @@ int process(std::string inputName) {
 			int true_positives = 0;
 			int false_positives = 0;
 			int relevant = 0;
+
+			/* set debug mask to minimum */
+			debug::set_debug_mask(DBG_NONE);
 
 			std::ifstream file(inputName.c_str());
 			fs::path pathname(inputName);
