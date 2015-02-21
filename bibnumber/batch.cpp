@@ -147,6 +147,13 @@ int process(std::string inputName) {
 						false_positives++;
 					}
 				}
+
+				for (unsigned int i = 0; i < groundTruthNumbers.size(); i++) {
+					if (!exists(bibNumbers, groundTruthNumbers[i])) {
+						std::cout << "Missed " << groundTruthNumbers[i] << std::endl;
+					}
+				}
+
 			}
 
 			std::cout.setf(std::ios_base::fixed, std::ios_base::floatfield);
