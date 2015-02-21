@@ -43,15 +43,21 @@
 
 #define PI 3.14159265
 
+#define COM_MAX_MEDIAN_RATIO (2.0)
+#define COM_MAX_DIM_RATIO (2.0)
+
+
 #define MAX_TORSO_TO_BIB_RATIO_X (4)
 
 #define DBG_CHAINS (1<<0)
 #define DBG_TXT_ORIENT (1<<1)
 #define DBG_COMPONENTS (1<<2)
+#define DBG_ALL (0xFFFFFFFF)
 
-#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_COMPONENTS )
+//#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_COMPONENTS )
 //#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_CHAINS )
 //#define DBG_MASK   ( DBG_TXT_ORIENT )
+#define DBG_MASK   ( DBG_ALL )
 
 #define DBG(mask,x) do { \
   if (DBG_MASK & (mask)) { std::cout << x ; } \
@@ -995,6 +1001,11 @@ bool chainSortLength(const Chain &lhs, const Chain &rhs) {
 	return lhs.components.size() > rhs.components.size();
 }
 
+static int inline ratio_within(float ratio, float max_ratio)
+{
+	return ((ratio<max_ratio)&&(ratio>1/max_ratio));
+}
+
 std::vector<Chain> makeChains(IplImage * colorImage,
 		std::vector<std::vector<Point2d> > & components,
 		std::vector<Point2dFloat> & compCenters,
@@ -1033,13 +1044,14 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 		for (unsigned int j = i + 1; j < components.size(); j++) {
 			// TODO add color metric
 			float compMediansRatio = compMedians[i] / compMedians[j];
-			float compDimensionsRatio = (float)compDimensions[i].y / compDimensions[j].y;
+			float compDimRatioY = (float)compDimensions[i].y / compDimensions[j].y;
+			float compDimRatioX = (float)compDimensions[i].x / compDimensions[j].x;
 			float dist = square(compCenters[i].x - compCenters[j].x)
 									+ square(compCenters[i].y - compCenters[j].y);
 			float colorDist = square(colorAverages[i].x - colorAverages[j].x)
 									+ square(colorAverages[i].y - colorAverages[j].y)
 									+ square(colorAverages[i].z - colorAverages[j].z);
-			float maxDimDist = (float)square(std::max(
+			float maxDim = (float)square(std::max(
 									std::min(compDimensions[i].x,
 											compDimensions[i].y),
 									std::min(compDimensions[j].x,
@@ -1047,16 +1059,18 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 			DBGL(DBG_CHAINS,"Pair (" << i << ":" << j
 					<< "): dist=" << dist
 					<< " colorDist=" << colorDist
-					<< " maxDimDist=" << maxDimDist
+					<< " maxDim=" << maxDim
 					<< " compMediansRatio=" << compMediansRatio
-					<< " compDimensionsRatio=" << compDimensionsRatio);
+					<< " compDimRatioX=" << compDimRatioX
+					<< " compDimRatioY=" << compDimRatioY);
 
 			if ((compMedians[i] / compMedians[j] <= 2.0
 					|| compMedians[j] / compMedians[i] <= 2.0)
-					&& (compDimensionsRatio > 0.5)
-					&& (compDimensionsRatio < 2) ) {
+					&& (ratio_within(compDimRatioY, COM_MAX_DIM_RATIO))
+					&& (ratio_within(compDimRatioX, COM_MAX_DIM_RATIO))
+					) {
 
-				if (dist < 3 * maxDimDist /*&& colorDist < 6000*/) {
+				if (dist < 3 * maxDim /*&& colorDist < 6000*/) {
 					Chain c;
 					c.p = i;
 					c.q = j;
