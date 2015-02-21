@@ -39,7 +39,8 @@
 
 #include <tesseract/baseapi.h>
 #include <tesseract/strngs.h>
-#include <iostream>
+
+#include "debug.h"
 
 #define PI 3.14159265
 
@@ -49,23 +50,7 @@
 
 #define MAX_TORSO_TO_BIB_RATIO_X (4)
 
-#define DBG_CHAINS (1<<0)
-#define DBG_TXT_ORIENT (1<<1)
-#define DBG_COMPONENTS (1<<2)
-#define DBG_ALL (0xFFFFFFFF)
 
-//#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_COMPONENTS )
-//#define DBG_MASK   ( DBG_TXT_ORIENT | DBG_CHAINS )
-//#define DBG_MASK   ( DBG_TXT_ORIENT )
-#define DBG_MASK   ( DBG_ALL )
-
-#define DBG(mask,x) do { \
-  if (DBG_MASK & (mask)) { std::cout << x ; } \
-} while (0)
-
-#define DBGL(mask,x) do { \
-  if (DBG_MASK & (mask)) { std::cout << x << std::endl; } \
-} while (0)
 
 static inline int square(int x)
 {
