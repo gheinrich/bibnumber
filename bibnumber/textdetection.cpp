@@ -44,7 +44,7 @@
 
 #define PI 3.14159265
 
-#define COM_MAX_MEDIAN_RATIO (2.0)
+#define COM_MAX_MEDIAN_RATIO (3.0)
 #define COM_MAX_DIM_RATIO (2.0)
 
 
@@ -1045,13 +1045,12 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 					<< " compDimRatioX=" << compDimRatioX
 					<< " compDimRatioY=" << compDimRatioY);
 
-			if ((compMedians[i] / compMedians[j] <= 2.0
-					|| compMedians[j] / compMedians[i] <= 2.0)
-					&& (ratio_within(compDimRatioY, COM_MAX_DIM_RATIO))
-					&& (ratio_within(compDimRatioX, COM_MAX_DIM_RATIO))
+			if (ratio_within(compMediansRatio, COM_MAX_MEDIAN_RATIO)
+				&& (ratio_within(compDimRatioY, COM_MAX_DIM_RATIO))
+				&& (ratio_within(compDimRatioX, COM_MAX_DIM_RATIO))
 					) {
 
-				if (dist < 3 * maxDim /*&& colorDist < 6000*/) {
+				if (dist < 1.5 * maxDim /*&& colorDist < 6000*/) {
 					Chain c;
 					c.p = i;
 					c.q = j;
@@ -1075,12 +1074,6 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 					c.direction = dir;
 					chains.push_back(c);
 
-					/*std::cerr << c.p << " " << c.q << std::endl;
-					 std::cerr << c.direction.x << " " << c.direction.y << std::endl;
-					 std::cerr << compCenters[c.p].x << " " << compCenters[c.p].y << std::endl;
-					 std::cerr << compCenters[c.q].x << " " << compCenters[c.q].y << std::endl;
-					 std::cerr << std::endl;
-					 std::cerr << colorDist << std::endl; */
 				}
 			}
 		}
@@ -1355,7 +1348,7 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 		DBGL(DBG_CHAINS, "");
 	}
 
-	DBG(DBG_CHAINS, chains.size() << " chains after merging");
+	DBGL(DBG_CHAINS, chains.size() << " chains after merging");
 
 	return chains;
 }
