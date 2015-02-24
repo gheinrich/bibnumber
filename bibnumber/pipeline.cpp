@@ -12,22 +12,30 @@
 
 namespace pipeline {
 
+static void vectorAtoi(std::vector<int>&numbers, std::vector<std::string>&text)
+{
+	for (std::vector<std::string>::iterator it = text.begin(); it != text.end();
+					it++) {
+		boost::algorithm::trim(*it);
+		numbers.push_back(atoi(it->c_str()));
+	}
+}
+
 int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 	int res;
 	const double scale = 1;
 	std::vector<cv::Rect> faces;
 	const static cv::Scalar colors[] = { CV_RGB(0, 0, 255), CV_RGB(0, 128, 255),
-				CV_RGB(0, 255, 255), CV_RGB(0, 255, 0), CV_RGB(255, 128, 0), CV_RGB(
-						255, 255, 0), CV_RGB(255, 0, 0), CV_RGB(255, 0, 255) };
-
+			CV_RGB(0, 255, 255), CV_RGB(0, 255, 0), CV_RGB(255, 128, 0), CV_RGB(
+					255, 255, 0), CV_RGB(255, 0, 0), CV_RGB(255, 0, 255) };
 
 	res = facedetection::processImage(img, faces);
-	if (res<0)
-	{
+	if (res < 0) {
 		std::cerr << "ERROR: Could not proceed to face detection" << std::endl;
 		return -1;
 	}
 
+#if 1
 	int i = 0;
 	for (std::vector<cv::Rect>::const_iterator r = faces.begin(); r != faces.end();
 			r++, i++) {
@@ -45,11 +53,11 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 			circle(img, center, radius, color, 3, 8, 0);
 
 		} else
-			rectangle(img,
-					cvPoint(cvRound(r->x * scale), cvRound(r->y * scale)),
-					cvPoint(cvRound((r->x + r->width - 1) * scale),
-							cvRound((r->y + r->height - 1) * scale)), color, 3,
-					8, 0);
+		rectangle(img,
+				cvPoint(cvRound(r->x * scale), cvRound(r->y * scale)),
+				cvPoint(cvRound((r->x + r->width - 1) * scale),
+						cvRound((r->y + r->height - 1) * scale)), color, 3,
+				8, 0);
 
 		cv::Rect roi = cv::Rect(
 				cvPoint(cvRound((r->x - 0.66 * r->width) * scale),
@@ -68,19 +76,22 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 
 		cv::Mat subImage(img, roi);
 		IplImage ipl_img = subImage;
-		if ( //(i==8) &&
-			(1)) {
-			std::string bibNumber;
-			textDetection(&ipl_img, 1, bibNumber);
-			if (bibNumber.size()>0) {
-				boost::algorithm::trim(bibNumber);
-				bibNumbers.push_back(atoi(bibNumber.c_str()));
-			}
+		if (//(i==8) &&
+				(1)) {
+			std::vector<std::string> text;
+			textDetection(&ipl_img, 1, text);
+			vectorAtoi(bibNumbers, text);
 			char filename[100];
 			sprintf(filename, "torso-%d.png", i);
 			cv::imwrite(filename, subImage);
 		}
 	}
+#else
+	IplImage ipl_img = img;
+	std::vector<std::string> text;
+	textDetection(&ipl_img, 1, text);
+	vectorAtoi(bibNumbers, text);
+#endif
 	cv::imwrite("face-detection.png", img);
 
 	return 0;
