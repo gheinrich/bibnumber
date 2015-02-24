@@ -46,7 +46,6 @@
 
 #define COM_MAX_MEDIAN_RATIO (3.0)
 #define COM_MAX_DIM_RATIO (2.0)
-#define COM_MAX_DIST_RATIO (1.5)
 
 
 #define MAX_TORSO_TO_BIB_RATIO_X (4)
@@ -290,7 +289,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		std::vector<Chain> & chains,
 		std::vector<std::pair<Point2d, Point2d> > & compBB, IplImage * output,
 		IplImage * input,
-		std::vector<std::string>& text) {
+		std::string& text) {
 	// keep track of included components
 	std::vector<bool> included;
 	included.reserve(components.size());
@@ -393,8 +392,8 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 			boost::algorithm::trim(s_out);
 			if (s_out.size() == chains[i].components.size())
 			{
-				text.push_back(s_out);
-				DBGL(DBG_TEXTREC, "Mat text: " << s_out);
+				text.assign(s_out);
+				DBGL(DBG_TEXTREC, "Mat text: ");
 			}
 			else
 			{
@@ -441,7 +440,7 @@ void renderChains(IplImage * SWTImage,
 	cvReleaseImage(&outTemp);
 }
 
-IplImage * textDetection(IplImage * input, bool dark_on_light, std::vector<std::string> &text) {
+IplImage * textDetection(IplImage * input, bool dark_on_light, std::string &text) {
 	assert(input->depth == IPL_DEPTH_8U);
 	assert(input->nChannels == 3);
 	// Convert to grayscale
@@ -1051,7 +1050,7 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 				&& (ratio_within(compDimRatioX, COM_MAX_DIM_RATIO))
 					) {
 
-				if (dist/maxDim < COM_MAX_DIST_RATIO /*&& colorDist < 6000*/) {
+				if (dist < 1.5 * maxDim /*&& colorDist < 6000*/) {
 					Chain c;
 					c.p = i;
 					c.q = j;

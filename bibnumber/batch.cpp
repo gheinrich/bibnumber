@@ -112,15 +112,11 @@ int process(std::string inputName) {
 	}
 
 	if (fs::is_regular_file(inputName)) {
-		/* convert name to lower case to make extension checks easier */
-		std::string name(inputName);
-		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-
-		if ((boost::algorithm::ends_with(name, ".jpg"))
-				|| (boost::algorithm::ends_with(name, ".png"))) {
+		if ((boost::algorithm::ends_with(inputName, ".jpg"))
+				|| (boost::algorithm::ends_with(inputName, ".png"))) {
 			std::vector<int> bibNumbers;
 			res = processSingleImage(inputName, bibNumbers);
-		} else if (boost::algorithm::ends_with(name, ".csv")) {
+		} else if (boost::algorithm::ends_with(inputName, ".csv")) {
 
 			int true_positives = 0;
 			int false_positives = 0;

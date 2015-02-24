@@ -59,7 +59,7 @@ bool Point2dSort (Point2d const & lhs,
 
 IplImage * textDetection (IplImage *    float_input,
                           bool dark_on_light,
-                          std::vector<std::string>& text);
+                          std::string& text);
 
 void strokeWidthTransform (IplImage * edgeImage,
                            IplImage * gradientX,
