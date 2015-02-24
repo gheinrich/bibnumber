@@ -47,15 +47,16 @@
 #define COM_MAX_MEDIAN_RATIO (3.0)
 #define COM_MAX_DIM_RATIO (2.0)
 #define COM_MAX_DIST_RATIO (1.5)
-
+#define COM_MAX_ASPECT_RATIO (2.0)
 
 #define MAX_TORSO_TO_BIB_RATIO_X (4)
 
+static inline int square(int x) {
+	return x * x;
+}
 
-
-static inline int square(int x)
-{
-	return x*x;
+static int inline ratio_within(float ratio, float max_ratio) {
+	return ((ratio < max_ratio) && (ratio > 1 / max_ratio));
 }
 
 std::vector<std::pair<CvPoint, CvPoint> > findBoundingBoxes(
@@ -106,27 +107,25 @@ std::vector<std::vector<CvPoint> > findBoundingTrapeze(
 				rightmostComponent = *cit;
 			}
 		}
-		if (1) /*(maxx - minx > output->width / MAX_TORSO_TO_BIB_RATIO_X)*/ {
-			CvPoint topLeft = cvPoint(compBB[leftmostComponent].first.x,
-					compBB[leftmostComponent].first.y);
-			CvPoint bottomLeft = cvPoint(compBB[leftmostComponent].first.x,
-					compBB[leftmostComponent].second.y);
-			CvPoint topRight = cvPoint(compBB[rightmostComponent].second.x,
-					compBB[rightmostComponent].first.y);
-			CvPoint bottomRight = cvPoint(compBB[rightmostComponent].second.x,
-					compBB[rightmostComponent].second.y);
-			std::vector<CvPoint> trapeze;
-			trapeze.push_back(topLeft);
-			trapeze.push_back(bottomLeft);
-			trapeze.push_back(topRight);
-			trapeze.push_back(bottomRight);
-			bt.push_back(trapeze);
 
-			DBGL(DBG_TXT_ORIENT, "Trapeze: " << "(" << topLeft.x << "," << topLeft.y
-					<< "),(" << bottomLeft.x << "," << bottomLeft.y << "),("
-					<< topRight.x << "," << topRight.y << "),(" << bottomRight.x
-					<< "," << bottomRight.y << ")" );
-		}
+		CvPoint topLeft = cvPoint(compBB[leftmostComponent].first.x,
+				compBB[leftmostComponent].first.y);
+		CvPoint bottomLeft = cvPoint(compBB[leftmostComponent].first.x,
+				compBB[leftmostComponent].second.y);
+		CvPoint topRight = cvPoint(compBB[rightmostComponent].second.x,
+				compBB[rightmostComponent].first.y);
+		CvPoint bottomRight = cvPoint(compBB[rightmostComponent].second.x,
+				compBB[rightmostComponent].second.y);
+		std::vector<CvPoint> trapeze;
+		trapeze.push_back(topLeft);
+		trapeze.push_back(bottomLeft);
+		trapeze.push_back(topRight);
+		trapeze.push_back(bottomRight);
+		bt.push_back(trapeze);
+
+		DBGL(DBG_TXT_ORIENT,
+				"Trapeze: " << "(" << topLeft.x << "," << topLeft.y << "),(" << bottomLeft.x << "," << bottomLeft.y << "),(" << topRight.x << "," << topRight.y << "),(" << bottomRight.x << "," << bottomRight.y << ")");
+
 	}
 	return bt;
 }
@@ -276,7 +275,7 @@ void renderComponentsWithBoxes(IplImage * SWTImage,
 			c = cvScalar(0, 0, 255);
 
 		char *txt;
-		asprintf(&txt,"%d",count);
+		asprintf(&txt, "%d", count);
 		cv::Mat tmp_mat = cv::Mat(output);
 		cv::rectangle(tmp_mat, it->first, it->second, c);
 		cv::putText(tmp_mat, txt, it->first, cv::FONT_HERSHEY_SIMPLEX, 0.3, c);
@@ -289,8 +288,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		std::vector<std::vector<Point2d> > & components,
 		std::vector<Chain> & chains,
 		std::vector<std::pair<Point2d, Point2d> > & compBB, IplImage * output,
-		IplImage * input,
-		std::vector<std::string>& text) {
+		IplImage * input, std::vector<std::string>& text) {
 	// keep track of included components
 	std::vector<bool> included;
 	included.reserve(components.size());
@@ -312,7 +310,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 	}
 	IplImage * outTemp = cvCreateImage(cvGetSize(output), IPL_DEPTH_32F, 1);
 
-	DBGL(DBG_CHAINS, componentsRed.size() << " components after chaining" );
+	DBGL(DBG_CHAINS, componentsRed.size() << " components after chaining");
 
 	renderComponents(SWTImage, componentsRed, outTemp);
 	std::vector<std::pair<CvPoint, CvPoint> > bb;
@@ -327,13 +325,13 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 	cvReleaseImage(&out);
 	cvReleaseImage(&outTemp);
 
-	for (unsigned int i=0; i<bt.size(); i++) {
+	for (unsigned int i = 0; i < bt.size(); i++) {
 		CvPoint topLeft = bt[i][0];
 		CvPoint bottomLeft = bt[i][1];
 		CvPoint bottomRight = bt[i][3];
 
 		if (bottomRight.x - topLeft.x < output->width / MAX_TORSO_TO_BIB_RATIO_X)
-			continue;
+				continue;
 
 		double theta_rad = atan2(bottomRight.y - bottomLeft.y,
 				bottomRight.x - bottomLeft.x);
@@ -344,22 +342,23 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		/* create copy of input image including only the selected components */
 		cv::Mat inputMat = cv::Mat(input);
 		cv::Mat componentsImg = cv::Mat::zeros(inputMat.rows, inputMat.cols,
-						inputMat.type());
-		for (unsigned int j=0; j<chains[i].components.size(); j++) {
+				inputMat.type());
+		for (unsigned int j = 0; j < chains[i].components.size(); j++) {
 			int component_id = chains[i].components[j];
-			cv::Rect roi = cv::Rect(
-					compBB[component_id].first.x,
+			cv::Rect roi = cv::Rect(compBB[component_id].first.x,
 					compBB[component_id].first.y,
-					compBB[component_id].second.x-compBB[component_id].first.x,
-					compBB[component_id].second.y-compBB[component_id].first.y);
+					compBB[component_id].second.x
+							- compBB[component_id].first.x,
+					compBB[component_id].second.y
+							- compBB[component_id].first.y);
 			cv::Mat componentRoi = inputMat(roi);
 
 			//componentRoi.copyTo(componentsImg(roi));
 			cv::threshold(componentRoi, componentsImg(roi), 0 // the value doesn't matter for Otsu thresholding
-										, 255 // we could choose any non-zero value. 255 (white) makes it easy to see the binary image
-										, cv::THRESH_OTSU | cv::THRESH_BINARY_INV);
+					, 255 // we could choose any non-zero value. 255 (white) makes it easy to see the binary image
+					, cv::THRESH_OTSU | cv::THRESH_BINARY_INV);
 		}
-		cv::imwrite("bib-components.png",componentsImg);
+		cv::imwrite("bib-components.png", componentsImg);
 
 		cv::Mat rotMatrix = cv::getRotationMatrix2D(bottomLeft, theta_deg, 1.0);
 
@@ -387,22 +386,15 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		tess.SetImage((uchar*) mat.data, mat.cols, mat.rows, 1, mat.step1());
 		// Get the text
 		char* out = tess.GetUTF8Text();
-		if (strlen(out)>0)
-		{
+		if (strlen(out) > 0) {
 			std::string s_out(out);
 			boost::algorithm::trim(s_out);
-			if (s_out.size() == chains[i].components.size())
-			{
+			if (s_out.size() == chains[i].components.size()) {
 				text.push_back(s_out);
 				DBGL(DBG_TEXTREC, "Mat text: " << s_out);
-			}
-			else
-			{
-				DBGL(DBG_TEXTREC, "Text size mismatch: expected "
-						<< chains[i].components.size()
-						<< " digits, got '" <<  s_out
-						<< "' (" << s_out.size()
-						<< " digits)");
+			} else {
+				DBGL(DBG_TEXTREC,
+						"Text size mismatch: expected " << chains[i].components.size() << " digits, got '" << s_out << "' (" << s_out.size() << " digits)");
 			}
 		}
 
@@ -434,14 +426,15 @@ void renderChains(IplImage * SWTImage,
 			componentsRed.push_back(components[i]);
 		}
 	}
-	DBGL(DBG_CHAINS, componentsRed.size() << " components after chaining" );
+	DBGL(DBG_CHAINS, componentsRed.size() << " components after chaining");
 	IplImage * outTemp = cvCreateImage(cvGetSize(output), IPL_DEPTH_32F, 1);
 	renderComponents(SWTImage, componentsRed, outTemp);
 	cvConvertScale(outTemp, output, 255, 0);
 	cvReleaseImage(&outTemp);
 }
 
-IplImage * textDetection(IplImage * input, bool dark_on_light, std::vector<std::string> &text) {
+IplImage * textDetection(IplImage * input, bool dark_on_light,
+		std::vector<std::string> &text) {
 	assert(input->depth == IPL_DEPTH_8U);
 	assert(input->nChannels == 3);
 	// Convert to grayscale
@@ -624,8 +617,7 @@ void strokeWidthTransform(IplImage * edgeImage, IplImage * gradientX,
 										points.begin(); pit != points.end();
 										pit++) {
 									if (CV_IMAGE_ELEM(SWTImage, float, pit->y,
-											pit->x)
-											< 0) {
+											pit->x) < 0) {
 										CV_IMAGE_ELEM(SWTImage, float, pit->y, pit->x) =
 												length;
 									} else {
@@ -750,9 +742,8 @@ std::vector<std::vector<Point2d> > findLegallyConnectedComponents(
 
 	std::vector<std::vector<Point2d> > components;
 	components.reserve(num_comp);
-	DBGL(DBG_COMPONENTS, "Before filtering, "
-			<< num_comp << " components and "
-			<< num_vertices << " vertices");
+	DBGL(DBG_COMPONENTS,
+			"Before filtering, " << num_comp << " components and " << num_vertices << " vertices");
 	for (int j = 0; j < num_comp; j++) {
 		std::vector<Point2d> tmp;
 		components.push_back(tmp);
@@ -857,8 +848,8 @@ void filterComponents(IplImage * SWTImage,
 			}
 		}
 
-		// check if the aspect ratio is between 1/10 and 10
-		if (length / width < 1. / 10. || length / width > 10.) {
+		// check if the aspect ratio is between the allowed range
+		if (!ratio_within(length / width, COM_MAX_ASPECT_RATIO)) {
 			continue;
 		}
 
@@ -954,15 +945,12 @@ void filterComponents(IplImage * SWTImage,
 	validComponents.reserve(tempComp.size());
 	compBB.reserve(tempComp.size());
 
-	DBGL(DBG_COMPONENTS, "After filtering " << validComponents.size() << " components");
+	DBGL(DBG_COMPONENTS,
+			"After filtering " << validComponents.size() << " components");
 
 	for (unsigned int i = 0; i < validComponents.size(); i++) {
-		DBGL(DBG_COMPONENTS,"Component (" << i
-							<< "): dim=" << compDimensions[i].x << "*" << compDimensions[i].y
-							<< " median=" << compMedians[i]
-							<< " bb=(" << compBB[i].first.x << "," << compBB[i].first.y
-							<< ")->(" << compBB[i].second.x << "," << compBB[i].second.y << ")"
-			);
+		DBGL(DBG_COMPONENTS,
+				"Component (" << i << "): dim=" << compDimensions[i].x << "*" << compDimensions[i].y << " median=" << compMedians[i] << " bb=(" << compBB[i].first.x << "," << compBB[i].first.y << ")->(" << compBB[i].second.x << "," << compBB[i].second.y << ")");
 
 	}
 }
@@ -981,11 +969,6 @@ bool chainSortDist(const Chain &lhs, const Chain &rhs) {
 
 bool chainSortLength(const Chain &lhs, const Chain &rhs) {
 	return lhs.components.size() > rhs.components.size();
-}
-
-static int inline ratio_within(float ratio, float max_ratio)
-{
-	return ((ratio<max_ratio)&&(ratio>1/max_ratio));
 }
 
 std::vector<Chain> makeChains(IplImage * colorImage,
@@ -1026,32 +1009,27 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 		for (unsigned int j = i + 1; j < components.size(); j++) {
 			// TODO add color metric
 			float compMediansRatio = compMedians[i] / compMedians[j];
-			float compDimRatioY = (float)compDimensions[i].y / compDimensions[j].y;
-			float compDimRatioX = (float)compDimensions[i].x / compDimensions[j].x;
+			float compDimRatioY = (float) compDimensions[i].y
+					/ compDimensions[j].y;
+			float compDimRatioX = (float) compDimensions[i].x
+					/ compDimensions[j].x;
 			float dist = square(compCenters[i].x - compCenters[j].x)
-									+ square(compCenters[i].y - compCenters[j].y);
+					+ square(compCenters[i].y - compCenters[j].y);
 			float colorDist = square(colorAverages[i].x - colorAverages[j].x)
-									+ square(colorAverages[i].y - colorAverages[j].y)
-									+ square(colorAverages[i].z - colorAverages[j].z);
-			float maxDim = (float)square(std::max(
-									std::min(compDimensions[i].x,
-											compDimensions[i].y),
-									std::min(compDimensions[j].x,
-											compDimensions[j].y)));
-			DBGL(DBG_CHAINS,"Pair (" << i << ":" << j
-					<< "): dist=" << dist
-					<< " colorDist=" << colorDist
-					<< " maxDim=" << maxDim
-					<< " compMediansRatio=" << compMediansRatio
-					<< " compDimRatioX=" << compDimRatioX
-					<< " compDimRatioY=" << compDimRatioY);
+					+ square(colorAverages[i].y - colorAverages[j].y)
+					+ square(colorAverages[i].z - colorAverages[j].z);
+			float maxDim = (float) square(
+					std::max(std::min(compDimensions[i].x, compDimensions[i].y),
+							std::min(compDimensions[j].x,
+									compDimensions[j].y)));
+			DBGL(DBG_CHAINS,
+					"Pair (" << i << ":" << j << "): dist=" << dist << " colorDist=" << colorDist << " maxDim=" << maxDim << " compMediansRatio=" << compMediansRatio << " compDimRatioX=" << compDimRatioX << " compDimRatioY=" << compDimRatioY);
 
 			if (ratio_within(compMediansRatio, COM_MAX_MEDIAN_RATIO)
-				&& (ratio_within(compDimRatioY, COM_MAX_DIM_RATIO))
-				&& (ratio_within(compDimRatioX, COM_MAX_DIM_RATIO))
-					) {
+					&& (ratio_within(compDimRatioY, COM_MAX_DIM_RATIO))
+					&& (ratio_within(compDimRatioX, COM_MAX_DIM_RATIO))) {
 
-				if (dist/maxDim < COM_MAX_DIST_RATIO /*&& colorDist < 6000*/) {
+				if (dist / maxDim < COM_MAX_DIST_RATIO /*&& colorDist < 6000*/) {
 					Chain c;
 					c.p = i;
 					c.q = j;
@@ -1081,8 +1059,8 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 	}
 
 	/* print pairs */
-	for (unsigned int j=0; j < chains.size(); j++) {
-		DBG(DBG_CHAINS, "Pair" << j <<":" );
+	for (unsigned int j = 0; j < chains.size(); j++) {
+		DBG(DBG_CHAINS, "Pair" << j <<":");
 		for (unsigned int i = 0; i < chains[j].components.size(); i++) {
 			DBG(DBG_CHAINS, chains[j].components[i] << ",");
 		}
@@ -1330,10 +1308,10 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 			cit++) {
 		if (cit->components.size() >= 3) {
 			/* remove duplicates */
-			std::sort( cit->components.begin(), cit->components.end() );
-			cit->components.erase( std::unique( cit->components.begin(),
-					cit->components.end() ),
-					cit->components.end() );
+			std::sort(cit->components.begin(), cit->components.end());
+			cit->components.erase(
+					std::unique(cit->components.begin(), cit->components.end()),
+					cit->components.end());
 			newchains.push_back(*cit);
 		}
 	}
@@ -1341,10 +1319,10 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 	chains = newchains;
 
 	/* print chains */
-	for (unsigned int j=0; j < chains.size(); j++) {
-		DBG(DBG_CHAINS, "Chain" << j <<":" );
+	for (unsigned int j = 0; j < chains.size(); j++) {
+		DBG(DBG_CHAINS, "Chain" << j <<":");
 		for (unsigned int i = 0; i < chains[j].components.size(); i++) {
-						DBG(DBG_CHAINS, chains[j].components[i] << ",");
+			DBG(DBG_CHAINS, chains[j].components[i] << ",");
 		}
 		DBGL(DBG_CHAINS, "");
 	}
