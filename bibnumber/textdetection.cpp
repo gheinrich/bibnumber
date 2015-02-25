@@ -49,8 +49,6 @@
 #define COM_MAX_DIST_RATIO (1.5)
 #define COM_MAX_ASPECT_RATIO (2.0)
 
-#define MAX_TORSO_TO_BIB_RATIO_X (4)
-
 static inline int square(int x) {
 	return x * x;
 }
@@ -288,7 +286,8 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		std::vector<std::vector<Point2d> > & components,
 		std::vector<Chain> & chains,
 		std::vector<std::pair<Point2d, Point2d> > & compBB, IplImage * output,
-		IplImage * input, std::vector<std::string>& text) {
+		IplImage * input, const struct TextDetectionParams &params,
+		std::vector<std::string>& text) {
 	// keep track of included components
 	std::vector<bool> included;
 	included.reserve(components.size());
@@ -330,7 +329,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		CvPoint bottomLeft = bt[i][1];
 		CvPoint bottomRight = bt[i][3];
 
-		if (bottomRight.x - topLeft.x < output->width / MAX_TORSO_TO_BIB_RATIO_X)
+		if (bottomRight.x - topLeft.x < output->width / params.maxImgWidthToTextRatio)
 				continue;
 
 		double theta_rad = atan2(bottomRight.y - bottomLeft.y,
@@ -433,7 +432,7 @@ void renderChains(IplImage * SWTImage,
 	cvReleaseImage(&outTemp);
 }
 
-IplImage * textDetection(IplImage * input, bool dark_on_light,
+IplImage * textDetection(IplImage * input, const struct TextDetectionParams &params,
 		std::vector<std::string> &text) {
 	assert(input->depth == IPL_DEPTH_8U);
 	assert(input->nChannels == 3);
@@ -469,7 +468,7 @@ IplImage * textDetection(IplImage * input, bool dark_on_light,
 			*ptr++ = -1;
 		}
 	}
-	strokeWidthTransform(edgeImage, gradientX, gradientY, dark_on_light,
+	strokeWidthTransform(edgeImage, gradientX, gradientY, params,
 			SWTImage, rays);
 	cvSaveImage("SWT_0.png", SWTImage);
 	SWTMedianFilter(SWTImage, rays);
@@ -497,7 +496,7 @@ IplImage * textDetection(IplImage * input, bool dark_on_light,
 	std::vector<float> compMedians;
 	std::vector<Point2d> compDimensions;
 	filterComponents(SWTImage, components, validComponents, compCenters,
-			compMedians, compDimensions, compBB);
+			compMedians, compDimensions, compBB, params);
 
 	IplImage * output3 = cvCreateImage(cvGetSize(input), 8U, 3);
 	renderComponentsWithBoxes(SWTImage, validComponents, compBB, output3);
@@ -519,7 +518,7 @@ IplImage * textDetection(IplImage * input, bool dark_on_light,
 
 	IplImage * output = cvCreateImage(cvGetSize(input), IPL_DEPTH_8U, 3);
 	renderChainsWithBoxes(SWTImage, validComponents, chains, compBB, output,
-			grayImage, text);
+			grayImage, params, text);
 	cvSaveImage("text-boxes.png", output);
 	cvReleaseImage(&output);
 
@@ -532,7 +531,7 @@ IplImage * textDetection(IplImage * input, bool dark_on_light,
 }
 
 void strokeWidthTransform(IplImage * edgeImage, IplImage * gradientX,
-		IplImage * gradientY, bool dark_on_light, IplImage * SWTImage,
+		IplImage * gradientY, const struct TextDetectionParams &params, IplImage * SWTImage,
 		std::vector<Ray> & rays) {
 	// First pass
 	float prec = .05;
@@ -558,7 +557,7 @@ void strokeWidthTransform(IplImage * edgeImage, IplImage * gradientX,
 				float G_y = CV_IMAGE_ELEM(gradientY, float, row, col);
 				// normalize gradient
 				float mag = sqrt((G_x * G_x) + (G_y * G_y));
-				if (dark_on_light) {
+				if (params.darkOnLight) {
 					G_x = -G_x / mag;
 					G_y = -G_y / mag;
 				} else {
@@ -593,7 +592,7 @@ void strokeWidthTransform(IplImage * edgeImage, IplImage * gradientX,
 							float G_yt = CV_IMAGE_ELEM(gradientY, float,
 									curPixY, curPixX);
 							mag = sqrt((G_xt * G_xt) + (G_yt * G_yt));
-							if (dark_on_light) {
+							if (params.darkOnLight) {
 								G_xt = -G_xt / mag;
 								G_yt = -G_yt / mag;
 							} else {
@@ -612,7 +611,9 @@ void strokeWidthTransform(IplImage * edgeImage, IplImage * gradientX,
 																- (float) r.p.y)
 																* ((float) r.q.y
 																		- (float) r.p.y));
-								//if (length > 20) break;
+								if (length > params.maxStrokeLength)
+									break;
+
 								for (std::vector<Point2d>::iterator pit =
 										points.begin(); pit != points.end();
 										pit++) {
@@ -792,7 +793,8 @@ void filterComponents(IplImage * SWTImage,
 		std::vector<std::vector<Point2d> > & validComponents,
 		std::vector<Point2dFloat> & compCenters,
 		std::vector<float> & compMedians, std::vector<Point2d> & compDimensions,
-		std::vector<std::pair<Point2d, Point2d> > & compBB) {
+		std::vector<std::pair<Point2d, Point2d> > & compBB,
+		const struct TextDetectionParams &params) {
 	validComponents.reserve(components.size());
 	compCenters.reserve(components.size());
 	compMedians.reserve(components.size());
@@ -850,6 +852,10 @@ void filterComponents(IplImage * SWTImage,
 
 		// check if the aspect ratio is between the allowed range
 		if (!ratio_within(length / width, COM_MAX_ASPECT_RATIO)) {
+			continue;
+		}
+
+		if (width < params.minCharacterheight) {
 			continue;
 		}
 

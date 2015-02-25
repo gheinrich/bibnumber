@@ -44,6 +44,12 @@ struct Point3dFloat {
     float z;
 };
 
+struct TextDetectionParams {
+	bool darkOnLight;
+	int maxStrokeLength;
+	int minCharacterheight;
+	float maxImgWidthToTextRatio;
+};
 
 struct Chain {
     int p;
@@ -58,13 +64,13 @@ bool Point2dSort (Point2d const & lhs,
                   Point2d const & rhs);
 
 IplImage * textDetection (IplImage *    float_input,
-                          bool dark_on_light,
+                          const struct TextDetectionParams &params,
                           std::vector<std::string>& text);
 
 void strokeWidthTransform (IplImage * edgeImage,
                            IplImage * gradientX,
                            IplImage * gradientY,
-                           bool dark_on_light,
+                           const struct TextDetectionParams &params,
                            IplImage * SWTImage,
                            std::vector<Ray> & rays);
 
@@ -90,7 +96,8 @@ void filterComponents(IplImage * SWTImage,
                       std::vector<Point2dFloat> & compCenters,
                       std::vector<float> & compMedians,
                       std::vector<Point2d> & compDimensions,
-                      std::vector<std::pair<Point2d,Point2d> > & compBB );
+                      std::vector<std::pair<Point2d,Point2d> > & compBB,
+                      const struct TextDetectionParams &params);
 
 std::vector<Chain> makeChains( IplImage * colorImage,
                  std::vector<std::vector<Point2d> > & components,

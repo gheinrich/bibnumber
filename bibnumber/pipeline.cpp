@@ -76,10 +76,16 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 
 		cv::Mat subImage(img, roi);
 		IplImage ipl_img = subImage;
-		if (//(i==8) &&
+		if ( //(i==6) &&
 				(1)) {
 			std::vector<std::string> text;
-			textDetection(&ipl_img, 1, text);
+			const struct TextDetectionParams params = {
+					1, /* darkOnLight */
+					20, /* maxStrokeLength */
+					11, /* minCharacterHeight */
+					4, /* maxImgWidthToTextRatio */
+			};
+			textDetection(&ipl_img, params, text);
 			vectorAtoi(bibNumbers, text);
 			char filename[100];
 			sprintf(filename, "torso-%d.png", i);
