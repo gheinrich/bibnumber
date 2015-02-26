@@ -57,6 +57,13 @@ static int inline ratio_within(float ratio, float max_ratio) {
 	return ((ratio < max_ratio) && (ratio > 1 / max_ratio));
 }
 
+static bool is_number(const std::string& s) {
+	std::string::const_iterator it = s.begin();
+	while (it != s.end() && std::isdigit(*it))
+		++it;
+	return !s.empty() && it == s.end();
+}
+
 std::vector<std::pair<CvPoint, CvPoint> > findBoundingBoxes(
 		std::vector<Chain> & chains,
 		std::vector<std::pair<Point2d, Point2d> > & compBB, IplImage * output) {
@@ -329,8 +336,9 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		CvPoint bottomLeft = bt[i][1];
 		CvPoint bottomRight = bt[i][3];
 
-		if (bottomRight.x - topLeft.x < output->width / params.maxImgWidthToTextRatio)
-				continue;
+		if (bottomRight.x - topLeft.x
+				< output->width / params.maxImgWidthToTextRatio)
+			continue;
 
 		double theta_rad = atan2(bottomRight.y - bottomLeft.y,
 				bottomRight.x - bottomLeft.x);
@@ -385,21 +393,28 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		tess.SetImage((uchar*) mat.data, mat.cols, mat.rows, 1, mat.step1());
 		// Get the text
 		char* out = tess.GetUTF8Text();
-		if (strlen(out) > 0) {
+		do {
+			if (strlen(out) == 0) {
+				break;
+			}
 			std::string s_out(out);
 			boost::algorithm::trim(s_out);
-			if (s_out.size() == chains[i].components.size()) {
-				text.push_back(s_out);
-				DBGL(DBG_TEXTREC, "Mat text: " << s_out);
-			} else {
+
+			if (s_out.size() != chains[i].components.size()) {
 				DBGL(DBG_TEXTREC,
 						"Text size mismatch: expected " << chains[i].components.size() << " digits, got '" << s_out << "' (" << s_out.size() << " digits)");
+				break;
 			}
-		}
+			if (!is_number(s_out)) {
+				DBGL(DBG_TEXTREC, "Text is not a number ('" << s_out << "')");
+				break;
+			}
+			text.push_back(s_out);
+			DBGL(DBG_TEXTREC, "Mat text: " << s_out);
+		} while (0);
 
 		cv::rectangle(rotatedMat, roi, cvScalar(0, 0, 255), 2);
 		cv::imwrite("bib-rotated.png", rotatedMat);
-
 	}
 }
 
@@ -432,7 +447,8 @@ void renderChains(IplImage * SWTImage,
 	cvReleaseImage(&outTemp);
 }
 
-IplImage * textDetection(IplImage * input, const struct TextDetectionParams &params,
+IplImage * textDetection(IplImage * input,
+		const struct TextDetectionParams &params,
 		std::vector<std::string> &text) {
 	assert(input->depth == IPL_DEPTH_8U);
 	assert(input->nChannels == 3);
@@ -468,8 +484,8 @@ IplImage * textDetection(IplImage * input, const struct TextDetectionParams &par
 			*ptr++ = -1;
 		}
 	}
-	strokeWidthTransform(edgeImage, gradientX, gradientY, params,
-			SWTImage, rays);
+	strokeWidthTransform(edgeImage, gradientX, gradientY, params, SWTImage,
+			rays);
 	cvSaveImage("SWT_0.png", SWTImage);
 	SWTMedianFilter(SWTImage, rays);
 	cvSaveImage("SWT_1.png", SWTImage);
@@ -531,8 +547,8 @@ IplImage * textDetection(IplImage * input, const struct TextDetectionParams &par
 }
 
 void strokeWidthTransform(IplImage * edgeImage, IplImage * gradientX,
-		IplImage * gradientY, const struct TextDetectionParams &params, IplImage * SWTImage,
-		std::vector<Ray> & rays) {
+		IplImage * gradientY, const struct TextDetectionParams &params,
+		IplImage * SWTImage, std::vector<Ray> & rays) {
 	// First pass
 	float prec = .05;
 	for (int row = 0; row < edgeImage->height; row++) {
@@ -666,7 +682,7 @@ bool Point2dSort(const Point2d &lhs, const Point2d &rhs) {
 }
 
 std::vector<std::vector<Point2d> > findLegallyConnectedComponents(
-		IplImage * SWTImage, std::vector<Ray> & rays) {
+		IplImage * SWTImage, std::vector<Ray> &rays) {
 	boost::unordered_map<int, int> map;
 	boost::unordered_map<int, Point2d> revmap;
 

@@ -95,7 +95,13 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 #else
 	IplImage ipl_img = img;
 	std::vector<std::string> text;
-	textDetection(&ipl_img, 1, text);
+	const struct TextDetectionParams params = {
+						1, /* darkOnLight */
+						15, /* maxStrokeLength */
+						11, /* minCharacterHeight */
+						100, /* maxImgWidthToTextRatio */
+				};
+	textDetection(&ipl_img, params, text);
 	vectorAtoi(bibNumbers, text);
 #endif
 	cv::imwrite("face-detection.png", img);
