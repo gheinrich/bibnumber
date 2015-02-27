@@ -46,7 +46,7 @@
 
 #define COM_MAX_MEDIAN_RATIO (3.0)
 #define COM_MAX_DIM_RATIO (2.0)
-#define COM_MAX_DIST_RATIO (1.5)
+#define COM_MAX_DIST_RATIO (1.6)
 #define COM_MAX_ASPECT_RATIO (2.0)
 
 static inline int square(int x) {
@@ -63,6 +63,12 @@ static bool is_number(const std::string& s) {
 		++it;
 	return !s.empty() && it == s.end();
 }
+
+static double absd(double x)
+{
+	return x>0 ? x : -x;
+}
+
 
 std::vector<std::pair<CvPoint, CvPoint> > findBoundingBoxes(
 		std::vector<Chain> & chains,
@@ -344,7 +350,13 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 				bottomRight.x - bottomLeft.x);
 		double theta_deg = (theta_rad / PI) * 180;
 
-		DBGL(DBG_TXT_ORIENT, "Orientation: " << theta_deg << " degrees");
+		if (absd(theta_deg) > params.maxAngle)
+		{
+			DBGL(DBG_TXT_ORIENT, "Chain angle " << theta_deg << " exceeds max " <<
+					params.maxAngle);
+			continue;
+		}
+		DBGL(DBG_TXT_ORIENT, "Chain Angle: " << theta_deg << " degrees");
 
 		/* create copy of input image including only the selected components */
 		cv::Mat inputMat = cv::Mat(input);
@@ -382,7 +394,8 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		cv::Mat mat_roi = rotatedMat(roi);
 
 		cv::Mat mat = mat_roi;
-		cv::imwrite("bib-tess-input.png", mat);
+		/* cv::resize(mat, mat, cvSize(0, 0), 2, 2);
+		if (i==0)*/ cv::imwrite("bib-tess-input.png", mat);
 
 		// Pass it to Tesseract API
 		tesseract::TessBaseAPI tess;

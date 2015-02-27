@@ -49,6 +49,7 @@ struct TextDetectionParams {
 	int maxStrokeLength;
 	int minCharacterheight;
 	float maxImgWidthToTextRatio;
+	float maxAngle;
 };
 
 struct Chain {
