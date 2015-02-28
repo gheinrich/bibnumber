@@ -64,11 +64,9 @@ static bool is_number(const std::string& s) {
 	return !s.empty() && it == s.end();
 }
 
-static double absd(double x)
-{
-	return x>0 ? x : -x;
+static double absd(double x) {
+	return x > 0 ? x : -x;
 }
-
 
 std::vector<std::pair<CvPoint, CvPoint> > findBoundingBoxes(
 		std::vector<Chain> & chains,
@@ -350,10 +348,9 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 				bottomRight.x - bottomLeft.x);
 		double theta_deg = (theta_rad / PI) * 180;
 
-		if (absd(theta_deg) > params.maxAngle)
-		{
-			DBGL(DBG_TXT_ORIENT, "Chain angle " << theta_deg << " exceeds max " <<
-					params.maxAngle);
+		if (absd(theta_deg) > params.maxAngle) {
+			DBGL(DBG_TXT_ORIENT,
+					"Chain angle " << theta_deg << " exceeds max " << params.maxAngle);
 			continue;
 		}
 		DBGL(DBG_TXT_ORIENT, "Chain Angle: " << theta_deg << " degrees");
@@ -394,13 +391,25 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		cv::Mat mat_roi = rotatedMat(roi);
 
 		cv::Mat mat = mat_roi;
-		/* cv::resize(mat, mat, cvSize(0, 0), 2, 2);
-		if (i==0)*/ cv::imwrite("bib-tess-input.png", mat);
+#if 0
+		float upscale = 3.0;
+		cv::resize(mat, mat, cvSize(0, 0), upscale, upscale);
+		std::cout << "Roi height " << mat_roi.rows;
+		int s = (int) (0.05 * upscale * mat_roi.rows);
+		cv::Mat elem = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+				cv::Size(2 * s + 1, 2 * s + 1), cv::Point(s, s));
+		cv::erode(mat, mat, elem);
+		//cv::dilate(mat, mat, elem);
+		if (i == 3)
+#endif
+		cv::imwrite("bib-tess-input.png", mat);
 
 		// Pass it to Tesseract API
 		tesseract::TessBaseAPI tess;
 		tess.Init(NULL, "eng", tesseract::OEM_DEFAULT);
+#if 1
 		tess.SetVariable("tessedit_char_whitelist", "0123456789");
+#endif
 		tess.SetVariable("tessedit_write_images", "true");
 		tess.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
 		tess.SetImage((uchar*) mat.data, mat.cols, mat.rows, 1, mat.step1());
@@ -849,6 +858,12 @@ void filterComponents(IplImage * SWTImage,
 
 		// check font height
 		if (width > 300) {
+			continue;
+		}
+
+		// check borders
+		if ((miny < params.topBorder)
+				|| (maxy > SWTImage->height - params.bottomBorder)) {
 			continue;
 		}
 

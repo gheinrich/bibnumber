@@ -85,6 +85,8 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 					11, /* minCharacterHeight */
 					4, /* maxImgWidthToTextRatio */
 					15, /* maxAngle */
+					0, /* topBorder: don't discard anything */
+					0,  /* bottomBorder: don't discard anything */
 			};
 			textDetection(&ipl_img, params, text);
 			vectorAtoi(bibNumbers, text);
@@ -102,6 +104,8 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 						11, /* minCharacterHeight */
 						100, /* maxImgWidthToTextRatio */
 						15, /* maxAngle */
+						img.rows * 10/100, /* topBorder: discard top 10% */
+						img.rows * 5/100,  /* bottomBorder: discard bottom 5% */
 				};
 	textDetection(&ipl_img, params, text);
 	vectorAtoi(bibNumbers, text);
