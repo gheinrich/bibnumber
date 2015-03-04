@@ -16,7 +16,7 @@
 
 #include "batch.h"
 #include "pipeline.h"
-#include "debug.h"
+#include "log.h"
 
 namespace bimaps = boost::bimaps;
 namespace fs = boost::filesystem;
@@ -144,8 +144,8 @@ int process(std::string inputName) {
 			int false_positives = 0;
 			int relevant = 0;
 
-			/* set debug mask to minimum */
-			debug::set_debug_mask(DBG_NONE);
+			/* set log mask to minimum */
+			biblog::set_log_mask(LOG_NONE);
 
 			std::ifstream file(inputName.c_str());
 			fs::path pathname(inputName);
@@ -210,8 +210,8 @@ int process(std::string inputName) {
 		std::ofstream outFile;
 		outFile.open(outPath.c_str());
 
-		/* set debug mask to minimum */
-		debug::set_debug_mask(DBG_NONE);
+		/* set log mask to minimum */
+		biblog::set_log_mask(LOG_NONE);
 
 		std::vector<fs::path> paths; // vector of paths in directory
 		std::vector<fs::path> img_paths; // vector of image paths

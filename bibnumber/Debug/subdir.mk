@@ -6,24 +6,24 @@
 CPP_SRCS += \
 ../batch.cpp \
 ../bibnumber.cpp \
-../debug.cpp \
 ../facedetection.cpp \
+../log.cpp \
 ../pipeline.cpp \
 ../textdetection.cpp 
 
 OBJS += \
 ./batch.o \
 ./bibnumber.o \
-./debug.o \
 ./facedetection.o \
+./log.o \
 ./pipeline.o \
 ./textdetection.o 
 
 CPP_DEPS += \
 ./batch.d \
 ./bibnumber.d \
-./debug.d \
 ./facedetection.d \
+./log.d \
 ./pipeline.d \
 ./textdetection.d 
 

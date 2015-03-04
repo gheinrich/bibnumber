@@ -1,32 +1,34 @@
 /** includes */
 #include <iostream>
 
-/** public variables */
-extern int debug_mask;
+#ifndef LOG_H
+#define LOG_H
 
 /** public macros */
-#define DBG_CHAINS (1<<0)
-#define DBG_TXT_ORIENT (1<<1)
-#define DBG_COMPONENTS (1<<2)
-#define DBG_TEXTREC (1<<3)
-#define DBG_ALL (0xFFFFFFFF)
-#define DBG_NONE (0)
+#define LOG_CHAINS (1<<0)
+#define LOG_TXT_ORIENT (1<<1)
+#define LOG_COMPONENTS (1<<2)
+#define LOG_TEXTREC (1<<3)
+#define LOG_ALL (0xFFFFFFFF)
+#define LOG_NONE (0)
 
-#define DBG_MASK (debug::debug_mask)
+#define LOG_MASK (biblog::log_mask)
 
-#define DBG(mask,x) do { \
-  if (DBG_MASK & (mask)) { std::cout << x ; } \
+#define LOG(mask,x) do { \
+  if (LOG_MASK & (mask)) { std::cout << x ; } \
 } while (0)
 
-#define DBGL(mask,x) do { \
-  if (DBG_MASK & (mask)) { std::cout << x << std::endl; } \
+#define LOGL(mask,x) do { \
+  if (LOG_MASK & (mask)) { std::cout << x << std::endl; } \
 } while (0)
 
-namespace debug
+namespace biblog
 {
 	/** public variables */
-	extern int debug_mask;
+	extern int log_mask;
 
 	/** public functions */
-	void set_debug_mask(int debug_mask);
+	void set_log_mask(int log_mask);
 }
+
+#endif /* #ifndef LOG_H */

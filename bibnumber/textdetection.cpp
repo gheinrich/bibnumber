@@ -40,7 +40,7 @@
 #include <tesseract/baseapi.h>
 #include <tesseract/strngs.h>
 
-#include "debug.h"
+#include "log.h"
 
 #define PI 3.14159265
 
@@ -132,7 +132,7 @@ std::vector<std::vector<CvPoint> > findBoundingTrapeze(
 		trapeze.push_back(bottomRight);
 		bt.push_back(trapeze);
 
-		DBGL(DBG_TXT_ORIENT,
+		LOGL(LOG_TXT_ORIENT,
 				"Trapeze: " << "(" << topLeft.x << "," << topLeft.y << "),(" << bottomLeft.x << "," << bottomLeft.y << "),(" << topRight.x << "," << topRight.y << "),(" << bottomRight.x << "," << bottomRight.y << ")");
 
 	}
@@ -320,7 +320,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 	}
 	IplImage * outTemp = cvCreateImage(cvGetSize(output), IPL_DEPTH_32F, 1);
 
-	DBGL(DBG_CHAINS, componentsRed.size() << " components after chaining");
+	LOGL(LOG_CHAINS, componentsRed.size() << " components after chaining");
 
 	renderComponents(SWTImage, componentsRed, outTemp);
 	std::vector<std::pair<CvPoint, CvPoint> > bb;
@@ -335,6 +335,8 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 	cvReleaseImage(&out);
 	cvReleaseImage(&outTemp);
 
+	LOGL(LOG_TXT_ORIENT, "Reading Chains  " << bt.size() );
+
 	for (unsigned int i = 0; i < bt.size(); i++) {
 		CvPoint topLeft = bt[i][0];
 		CvPoint bottomLeft = bt[i][1];
@@ -342,18 +344,22 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 
 		if (bottomRight.x - topLeft.x
 				< output->width / params.maxImgWidthToTextRatio)
+		{
+			LOGL(LOG_TXT_ORIENT, (bottomRight.x - topLeft.x) << " < " << (output->width / params.maxImgWidthToTextRatio));
 			continue;
+		}
+
 
 		double theta_rad = atan2(bottomRight.y - bottomLeft.y,
 				bottomRight.x - bottomLeft.x);
 		double theta_deg = (theta_rad / PI) * 180;
 
 		if (absd(theta_deg) > params.maxAngle) {
-			DBGL(DBG_TXT_ORIENT,
+			LOGL(LOG_TXT_ORIENT,
 					"Chain angle " << theta_deg << " exceeds max " << params.maxAngle);
 			continue;
 		}
-		DBGL(DBG_TXT_ORIENT, "Chain Angle: " << theta_deg << " degrees");
+		LOGL(LOG_TXT_ORIENT, "Chain Angle: " << theta_deg << " degrees");
 
 		/* create copy of input image including only the selected components */
 		cv::Mat inputMat = cv::Mat(input);
@@ -391,16 +397,13 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		cv::Mat mat_roi = rotatedMat(roi);
 
 		cv::Mat mat = mat_roi;
-#if 0
+#if 1
 		float upscale = 3.0;
 		cv::resize(mat, mat, cvSize(0, 0), upscale, upscale);
-		std::cout << "Roi height " << mat_roi.rows;
-		int s = (int) (0.05 * upscale * mat_roi.rows);
+		int s = (int) (0.05 * upscale * mat_roi.rows); /* 5% of up-scaled size) */
 		cv::Mat elem = cv::getStructuringElement(cv::MORPH_ELLIPSE,
 				cv::Size(2 * s + 1, 2 * s + 1), cv::Point(s, s));
 		cv::erode(mat, mat, elem);
-		//cv::dilate(mat, mat, elem);
-		if (i == 3)
 #endif
 		cv::imwrite("bib-tess-input.png", mat);
 
@@ -423,16 +426,16 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 			boost::algorithm::trim(s_out);
 
 			if (s_out.size() != chains[i].components.size()) {
-				DBGL(DBG_TEXTREC,
+				LOGL(LOG_TEXTREC,
 						"Text size mismatch: expected " << chains[i].components.size() << " digits, got '" << s_out << "' (" << s_out.size() << " digits)");
 				break;
 			}
 			if (!is_number(s_out)) {
-				DBGL(DBG_TEXTREC, "Text is not a number ('" << s_out << "')");
+				LOGL(LOG_TEXTREC, "Text is not a number ('" << s_out << "')");
 				break;
 			}
 			text.push_back(s_out);
-			DBGL(DBG_TEXTREC, "Mat text: " << s_out);
+			LOGL(LOG_TEXTREC, "Mat text: " << s_out);
 		} while (0);
 
 		cv::rectangle(rotatedMat, roi, cvScalar(0, 0, 255), 2);
@@ -462,7 +465,7 @@ void renderChains(IplImage * SWTImage,
 			componentsRed.push_back(components[i]);
 		}
 	}
-	DBGL(DBG_CHAINS, componentsRed.size() << " components after chaining");
+	LOGL(LOG_CHAINS, componentsRed.size() << " components after chaining");
 	IplImage * outTemp = cvCreateImage(cvGetSize(output), IPL_DEPTH_32F, 1);
 	renderComponents(SWTImage, componentsRed, outTemp);
 	cvConvertScale(outTemp, output, 255, 0);
@@ -781,7 +784,7 @@ std::vector<std::vector<Point2d> > findLegallyConnectedComponents(
 
 	std::vector<std::vector<Point2d> > components;
 	components.reserve(num_comp);
-	DBGL(DBG_COMPONENTS,
+	LOGL(LOG_COMPONENTS,
 			"Before filtering, " << num_comp << " components and " << num_vertices << " vertices");
 	for (int j = 0; j < num_comp; j++) {
 		std::vector<Point2d> tmp;
@@ -995,11 +998,11 @@ void filterComponents(IplImage * SWTImage,
 	validComponents.reserve(tempComp.size());
 	compBB.reserve(tempComp.size());
 
-	DBGL(DBG_COMPONENTS,
+	LOGL(LOG_COMPONENTS,
 			"After filtering " << validComponents.size() << " components");
 
 	for (unsigned int i = 0; i < validComponents.size(); i++) {
-		DBGL(DBG_COMPONENTS,
+		LOGL(LOG_COMPONENTS,
 				"Component (" << i << "): dim=" << compDimensions[i].x << "*" << compDimensions[i].y << " median=" << compMedians[i] << " bb=(" << compBB[i].first.x << "," << compBB[i].first.y << ")->(" << compBB[i].second.x << "," << compBB[i].second.y << ")");
 
 	}
@@ -1072,7 +1075,7 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 					std::max(std::min(compDimensions[i].x, compDimensions[i].y),
 							std::min(compDimensions[j].x,
 									compDimensions[j].y)));
-			DBGL(DBG_CHAINS,
+			LOGL(LOG_CHAINS,
 					"Pair (" << i << ":" << j << "): dist=" << dist << " colorDist=" << colorDist << " maxDim=" << maxDim << " compMediansRatio=" << compMediansRatio << " compDimRatioX=" << compDimRatioX << " compDimRatioY=" << compDimRatioY);
 
 			if (ratio_within(compMediansRatio, COM_MAX_MEDIAN_RATIO)
@@ -1110,14 +1113,14 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 
 	/* print pairs */
 	for (unsigned int j = 0; j < chains.size(); j++) {
-		DBG(DBG_CHAINS, "Pair" << j <<":");
+		LOG(LOG_CHAINS, "Pair" << j <<":");
 		for (unsigned int i = 0; i < chains[j].components.size(); i++) {
-			DBG(DBG_CHAINS, chains[j].components[i] << ",");
+			LOG(LOG_CHAINS, chains[j].components[i] << ",");
 		}
-		DBGL(DBG_CHAINS, "");
+		LOGL(LOG_CHAINS, "");
 	}
 
-	DBGL(DBG_CHAINS, chains.size() << " eligible pairs");
+	LOGL(LOG_CHAINS, chains.size() << " eligible pairs");
 
 	std::sort(chains.begin(), chains.end(), &chainSortDist);
 
@@ -1370,14 +1373,14 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 
 	/* print chains */
 	for (unsigned int j = 0; j < chains.size(); j++) {
-		DBG(DBG_CHAINS, "Chain" << j <<":");
+		LOG(LOG_CHAINS, "Chain" << j <<":");
 		for (unsigned int i = 0; i < chains[j].components.size(); i++) {
-			DBG(DBG_CHAINS, chains[j].components[i] << ",");
+			LOG(LOG_CHAINS, chains[j].components[i] << ",");
 		}
-		DBGL(DBG_CHAINS, "");
+		LOGL(LOG_CHAINS, "");
 	}
 
-	DBGL(DBG_CHAINS, chains.size() << " chains after merging");
+	LOGL(LOG_CHAINS, chains.size() << " chains after merging");
 
 	return chains;
 }
