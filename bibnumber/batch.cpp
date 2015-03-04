@@ -213,46 +213,52 @@ int process(std::string inputName) {
 		/* set debug mask to minimum */
 		debug::set_debug_mask(DBG_NONE);
 
-		typedef std::vector<fs::path> vec;             // store paths,
-		vec v;// so we can sort them later
+		std::vector<fs::path> paths; // vector of paths in directory
+		std::vector<fs::path> img_paths; // vector of image paths
 
 		std::copy(fs::directory_iterator(inputName), fs::directory_iterator(),
-				back_inserter(v));
+				back_inserter(paths));
 
-		sort(v.begin(), v.end());// sort, since directory iteration
-									// is not ordered on some file systems
-
-									//typedef bm::bimap<bm::multiset_of<std::string>,
-									//		bm::multiset_of<long, std::greater<long> > > imgTagBimap;
+		sort(paths.begin(), paths.end()); // sort, since directory iteration
+		// is not ordered on some file systems
 
 		typedef boost::bimap<bimaps::multiset_of<std::string>,
-						bimaps::multiset_of<int> > imgTagBimap;
+				bimaps::multiset_of<int> > imgTagBimap;
 
 		imgTagBimap tags;
 
-		for (vec::const_iterator it(v.begin()); it != v.end(); ++it) {
+		/* find images in directory */
+		for (std::vector<fs::path>::const_iterator it(paths.begin());
+				it != paths.end(); ++it) {
 			if (isImageFile(it->string())) {
-				std::vector<int> bibNumbers;
-				res = processSingleImage(it->string(), bibNumbers);
-
-				for (unsigned int i = 0; i < bibNumbers.size(); i++) {
-					tags.insert(imgTagBimap::value_type(it->string(),bibNumbers[i]) );
-				}
+				img_paths.push_back(*it);
 			}
 		}
 
-		std::cout << "Saving results to " << outPath.string() << std::endl;
+		/* process images */
+		for (int i = 0, j=img_paths.size(); i<j ; i++) {
+			std::vector<int> bibNumbers;
 
+			std::cout << std::endl << "[" << i+1 << "/" << j << "] ";
+			res = processSingleImage(img_paths[i].string(), bibNumbers);
+
+			for (unsigned int i = 0; i < bibNumbers.size(); i++) {
+				tags.insert(
+						imgTagBimap::value_type(img_paths[i].string(), bibNumbers[i]));
+			}
+		}
+
+		/* save results to .csv file */
+		std::cout << "Saving results to " << outPath.string() << std::endl;
 		int current_bib = 0;
-		for (imgTagBimap::right_const_iterator it=tags.right.begin(), iend=tags.right.end();
-				it!=iend; it++) {
+		for (imgTagBimap::right_const_iterator it = tags.right.begin(), iend =
+				tags.right.end(); it != iend; it++) {
 			if (it->first != current_bib) {
 				current_bib = it->first;
 				outFile << std::endl << current_bib << ",";
 			}
 			outFile << it->second << ",";
 		}
-
 		outFile.close();
 
 		return -1;
