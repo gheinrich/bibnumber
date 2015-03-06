@@ -78,7 +78,9 @@ int batch(const char *path) {
 }
 #endif
 
-static int processSingleImage(std::string fileName,
+static int processSingleImage(
+		std::string fileName,
+		pipeline::Pipeline &pipeline,
 		std::vector<int>& bibNumbers) {
 	int res;
 
@@ -92,7 +94,7 @@ static int processSingleImage(std::string fileName,
 	}
 
 	/* process image */
-	res = pipeline::processImage(image, bibNumbers);
+	res = pipeline.processImage(image, bibNumbers);
 	if (res < 0) {
 		std::cerr << "ERROR: Could not process image" << std::endl;
 		return -1;
@@ -130,6 +132,8 @@ int process(std::string inputName) {
 		return -1;
 	}
 
+	pipeline::Pipeline pipeline;
+
 	if (fs::is_regular_file(inputName)) {
 		/* convert name to lower case to make extension checks easier */
 		std::string name(inputName);
@@ -137,7 +141,7 @@ int process(std::string inputName) {
 
 		if (isImageFile(inputName)) {
 			std::vector<int> bibNumbers;
-			res = processSingleImage(inputName, bibNumbers);
+			res = processSingleImage(inputName, pipeline, bibNumbers);
 		} else if (boost::algorithm::ends_with(name, ".csv")) {
 
 			int true_positives = 0;
@@ -160,7 +164,7 @@ int process(std::string inputName) {
 				fs::path file(filename);
 				fs::path full_path = dirname / file;
 
-				processSingleImage(full_path.string(), bibNumbers);
+				processSingleImage(full_path.string(), pipeline, bibNumbers);
 
 				for (unsigned int i = 1; i < row.size(); i++)
 					groundTruthNumbers.push_back(atoi(row[i].c_str()));
@@ -240,7 +244,7 @@ int process(std::string inputName) {
 			std::vector<int> bibNumbers;
 
 			std::cout << std::endl << "[" << i+1 << "/" << j << "] ";
-			res = processSingleImage(img_paths[i].string(), bibNumbers);
+			res = processSingleImage(img_paths[i].string(), pipeline, bibNumbers);
 
 			for (unsigned int i = 0; i < bibNumbers.size(); i++) {
 				tags.insert(

@@ -39,6 +39,7 @@
 
 #include <tesseract/baseapi.h>
 #include <tesseract/strngs.h>
+#include <tesseract/genericvector.h>
 
 #include "log.h"
 
@@ -269,8 +270,8 @@ void renderComponentsWithBoxes(IplImage * SWTImage,
 	IplImage * out = cvCreateImage(cvGetSize(output), IPL_DEPTH_8U, 1);
 	cvConvertScale(outTemp, out, 255, 0);
 	cvCvtColor(out, output, CV_GRAY2RGB);
-	//cvReleaseImage ( &outTemp );
-	//cvReleaseImage ( &out );
+	cvReleaseImage ( &outTemp );
+	cvReleaseImage ( &out );
 
 	int count = 0;
 	for (std::vector<std::pair<CvPoint, CvPoint> >::iterator it = bb.begin();
@@ -298,6 +299,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		std::vector<Chain> & chains,
 		std::vector<std::pair<Point2d, Point2d> > & compBB, IplImage * output,
 		IplImage * input, const struct TextDetectionParams &params,
+		tesseract::TessBaseAPI &tess,
 		std::vector<std::string>& text) {
 	// keep track of included components
 	std::vector<bool> included;
@@ -408,13 +410,6 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		cv::imwrite("bib-tess-input.png", mat);
 
 		// Pass it to Tesseract API
-		tesseract::TessBaseAPI tess;
-		tess.Init(NULL, "eng", tesseract::OEM_DEFAULT);
-#if 0
-		tess.SetVariable("tessedit_char_whitelist", "0123456789");
-#endif
-		tess.SetVariable("tessedit_write_images", "true");
-		tess.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
 		tess.SetImage((uchar*) mat.data, mat.cols, mat.rows, 1, mat.step1());
 		// Get the text
 		char* out = tess.GetUTF8Text();
@@ -437,6 +432,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 			text.push_back(s_out);
 			LOGL(LOG_TEXTREC, "Mat text: " << s_out);
 		} while (0);
+		free(out);
 
 		cv::rectangle(rotatedMat, roi, cvScalar(0, 0, 255), 2);
 		cv::imwrite("bib-rotated.png", rotatedMat);
@@ -472,7 +468,44 @@ void renderChains(IplImage * SWTImage,
 	cvReleaseImage(&outTemp);
 }
 
-IplImage * textDetection(IplImage * input,
+namespace textdetection {
+
+TextDetector::TextDetector()
+{
+	std::cout << "TextDetector constructor" << std::endl;
+	GenericVector<STRING> pars_keys;
+	GenericVector<STRING> pars_vals;
+	pars_keys.push_back("load_system_dawg");
+	pars_vals.push_back("F");
+	pars_keys.push_back("load_freq_dawg");
+	pars_vals.push_back("F");
+	pars_keys.push_back("load_punc_dawg");
+	pars_vals.push_back("F");
+	pars_keys.push_back("load_number_dawg");
+	pars_vals.push_back("F");
+	pars_keys.push_back("load_unambig_dawg");
+	pars_vals.push_back("F");
+	pars_keys.push_back("load_bigram_dawg");
+	pars_vals.push_back("F");
+	pars_keys.push_back("load_fixed_length_dawgs");
+	pars_vals.push_back("F");
+	tess.Init(NULL, "eng", tesseract::OEM_DEFAULT, NULL, 0,
+			&pars_keys, &pars_vals, false);
+	#if 0
+	tess.SetVariable("tessedit_char_whitelist", "0123456789");
+	#endif
+	tess.SetVariable("tessedit_write_images", "true");
+	tess.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
+}
+
+TextDetector::~TextDetector(void)
+{
+	tess.Clear();
+	tess.End();
+	std::cout << "TextDetector destructor" << std::endl;
+}
+
+void TextDetector::detect(IplImage * input,
 		const struct TextDetectionParams &params,
 		std::vector<std::string> &text) {
 	assert(input->depth == IPL_DEPTH_8U);
@@ -542,24 +575,16 @@ IplImage * textDetection(IplImage * input,
 	IplImage * output3 = cvCreateImage(cvGetSize(input), 8U, 3);
 	renderComponentsWithBoxes(SWTImage, validComponents, compBB, output3);
 	cvSaveImage("components.png", output3);
-	//cvReleaseImage ( &output3 );
+	cvReleaseImage ( &output3 );
 
 	// Make chains of components
 	std::vector<Chain> chains;
 	chains = makeChains(input, validComponents, compCenters, compMedians,
 			compDimensions, compBB);
 
-	IplImage * output4 = cvCreateImage(cvGetSize(input), IPL_DEPTH_8U, 1);
-	renderChains(SWTImage, validComponents, chains, output4);
-	cvSaveImage("text.png", output4);
-
-	IplImage * output5 = cvCreateImage(cvGetSize(input), IPL_DEPTH_8U, 3);
-	cvCvtColor(output4, output5, CV_GRAY2RGB);
-	cvReleaseImage(&output4);
-
 	IplImage * output = cvCreateImage(cvGetSize(input), IPL_DEPTH_8U, 3);
 	renderChainsWithBoxes(SWTImage, validComponents, chains, compBB, output,
-			grayImage, params, text);
+			grayImage, params, tess, text);
 	cvSaveImage("text-boxes.png", output);
 	cvReleaseImage(&output);
 
@@ -568,8 +593,10 @@ IplImage * textDetection(IplImage * input,
 	cvReleaseImage(&SWTImage);
 	cvReleaseImage(&edgeImage);
 	cvReleaseImage(&grayImage);
-	return output5;
+	return;
 }
+
+} /* namespace textdetection */
 
 void strokeWidthTransform(IplImage * edgeImage, IplImage * gradientX,
 		IplImage * gradientY, const struct TextDetectionParams &params,

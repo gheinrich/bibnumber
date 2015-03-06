@@ -21,7 +21,8 @@ static void vectorAtoi(std::vector<int>&numbers, std::vector<std::string>&text)
 	}
 }
 
-int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
+int Pipeline::processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
+#if 1
 	int res;
 	const double scale = 1;
 	std::vector<cv::Rect> faces;
@@ -35,7 +36,7 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 		return -1;
 	}
 
-#if 1
+
 	int i = 0;
 	for (std::vector<cv::Rect>::const_iterator r = faces.begin(); r != faces.end();
 			r++, i++) {
@@ -76,7 +77,7 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 
 		cv::Mat subImage(img, roi);
 		IplImage ipl_img = subImage;
-		if ( //(i==6) &&
+		if ( //(i==2) &&
 				(1)) {
 			std::vector<std::string> text;
 			const struct TextDetectionParams params = {
@@ -88,7 +89,7 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 					0, /* topBorder: don't discard anything */
 					0,  /* bottomBorder: don't discard anything */
 			};
-			textDetection(&ipl_img, params, text);
+			textDetector.detect(&ipl_img, params, text);
 			vectorAtoi(bibNumbers, text);
 			char filename[100];
 			sprintf(filename, "torso-%d.png", i);
@@ -107,7 +108,7 @@ int processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 						img.rows * 10/100, /* topBorder: discard top 10% */
 						img.rows * 5/100,  /* bottomBorder: discard bottom 5% */
 				};
-	textDetection(&ipl_img, params, text);
+	textDetector.detect(&ipl_img, params, text);
 	vectorAtoi(bibNumbers, text);
 #endif
 	cv::imwrite("face-detection.png", img);

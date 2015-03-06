@@ -21,6 +21,8 @@
 
 #include <opencv/cv.h>
 
+#include <tesseract/baseapi.h>
+
 struct Point2d {
     int x;
     int y;
@@ -66,10 +68,6 @@ struct Chain {
 bool Point2dSort (Point2d const & lhs,
                   Point2d const & rhs);
 
-IplImage * textDetection (IplImage *    float_input,
-                          const struct TextDetectionParams &params,
-                          std::vector<std::string>& text);
-
 void strokeWidthTransform (IplImage * edgeImage,
                            IplImage * gradientX,
                            IplImage * gradientY,
@@ -108,6 +106,22 @@ std::vector<Chain> makeChains( IplImage * colorImage,
                  std::vector<float> & compMedians,
                  std::vector<Point2d> & compDimensions,
                  std::vector<std::pair<Point2d,Point2d> > & compBB);
+
+namespace textdetection {
+
+
+class TextDetector {
+public:
+	TextDetector(void);
+	~TextDetector(void);
+	void detect (IplImage *    float_input,
+	                    const struct TextDetectionParams &params,
+	                    std::vector<std::string>& text);
+private:
+	tesseract::TessBaseAPI tess;
+};
+
+}
 
 #endif // TEXTDETECTION_H
 
