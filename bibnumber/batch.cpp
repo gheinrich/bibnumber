@@ -246,9 +246,9 @@ int process(std::string inputName) {
 			std::cout << std::endl << "[" << i+1 << "/" << j << "] ";
 			res = processSingleImage(img_paths[i].string(), pipeline, bibNumbers);
 
-			for (unsigned int i = 0; i < bibNumbers.size(); i++) {
+			for (unsigned int k = 0; k < bibNumbers.size(); k++) {
 				tags.insert(
-						imgTagBimap::value_type(img_paths[i].string(), bibNumbers[i]));
+						imgTagBimap::value_type(img_paths[i].string(), bibNumbers[k]));
 			}
 		}
 
