@@ -294,6 +294,23 @@ void renderComponentsWithBoxes(IplImage * SWTImage,
 	}
 }
 
+static cv::Rect getBoundingBox(std::vector<cv::Point> vec, cv::Size clip)
+{
+	int minx=1e6, miny=1e6, maxx=-1, maxy=-1;
+	for (std::vector<cv::Point>::iterator it = vec.begin(); it != vec.end();
+				it++) {
+		if (it->x < minx)
+			minx = std::max(it->x,0);
+		if (it->y < miny)
+			miny = std::max(it->y,0);
+		if (it->x > maxx)
+			maxx = std::min(it->x, clip.width);
+		if (it->y > maxy)
+			maxy = std::min(it->y, clip.height);
+	}
+	return cv::Rect(cv::Point(minx,miny), cv::Point(maxx,maxy));
+}
+
 void renderChainsWithBoxes(IplImage * SWTImage,
 		std::vector<std::vector<Point2d> > & components,
 		std::vector<Chain> & chains,
@@ -367,6 +384,9 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		cv::Mat inputMat = cv::Mat(input);
 		cv::Mat componentsImg = cv::Mat::zeros(inputMat.rows, inputMat.cols,
 				inputMat.type());
+
+		std::vector<cv::Point> compCoords;
+
 		for (unsigned int j = 0; j < chains[i].components.size(); j++) {
 			int component_id = chains[i].components[j];
 			cv::Rect roi = cv::Rect(compBB[component_id].first.x,
@@ -377,7 +397,11 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 							- compBB[component_id].first.y);
 			cv::Mat componentRoi = inputMat(roi);
 
-			//componentRoi.copyTo(componentsImg(roi));
+			compCoords.push_back(cv::Point(compBB[component_id].first.x,compBB[component_id].first.y));
+			compCoords.push_back(cv::Point(compBB[component_id].second.x,compBB[component_id].second.y));
+			compCoords.push_back(cv::Point(compBB[component_id].first.x,compBB[component_id].second.y));
+			compCoords.push_back(cv::Point(compBB[component_id].second.x,compBB[component_id].first.y));
+
 			cv::threshold(componentRoi, componentsImg(roi), 0 // the value doesn't matter for Otsu thresholding
 					, 255 // we could choose any non-zero value. 255 (white) makes it easy to see the binary image
 					, cv::THRESH_OTSU | cv::THRESH_BINARY_INV);
@@ -386,10 +410,13 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 
 		cv::Mat rotMatrix = cv::getRotationMatrix2D(bottomLeft, theta_deg, 1.0);
 
+
 		cv::Mat rotatedMat = cv::Mat::zeros(inputMat.rows, inputMat.cols,
 				inputMat.type());
 		cv::warpAffine(componentsImg, rotatedMat, rotMatrix, rotatedMat.size());
+		cv::imwrite("bib-rotated.png", rotatedMat);
 
+#if 1
 		CvPoint newTopLeft = cvPoint(std::max(0, topLeft.x - 4),
 				std::max(0, topLeft.y - 4));
 		CvPoint newBottomRight = cvPoint(
@@ -397,11 +424,30 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 				std::min(inputMat.rows, bottomLeft.y + 2));
 		cv::Rect roi = cv::Rect(newTopLeft, newBottomRight);
 		cv::Mat mat_roi = rotatedMat(roi);
-
 		cv::Mat mat = mat_roi;
+
+#else
+		/* rotate each component coordinates */
+		const int border = 3;
+		cv::transform(compCoords,compCoords,rotMatrix);
+		/* find bounding box of rotated components */
+		cv::Rect roi = getBoundingBox(compCoords, cv::Size(output->width, output->height) );
+		cv::Mat mat = cv::Mat::zeros(roi.height + 2*border, roi.width + 2*border,
+								inputMat.type());
+		cv::Mat tmp = rotatedMat(roi);
+		/* copy bounded box from rotated mat to new mat with borders - borders are needed
+		 * to improve OCR success rate
+		 */
+		tmp.copyTo(mat(cv::Rect(
+						cv::Point(border,border),
+						cv::Point(roi.width+border,roi.height+border))));
+#endif
+
 #if 1
+		/* resize image to improve OCR success rate */
 		float upscale = 3.0;
 		cv::resize(mat, mat, cvSize(0, 0), upscale, upscale);
+		/* erode text to get rid of thin joints */
 		int s = (int) (0.05 * upscale * mat_roi.rows); /* 5% of up-scaled size) */
 		cv::Mat elem = cv::getStructuringElement(cv::MORPH_ELLIPSE,
 				cv::Size(2 * s + 1, 2 * s + 1), cv::Point(s, s));
@@ -433,9 +479,6 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 			LOGL(LOG_TEXTREC, "Mat text: " << s_out);
 		} while (0);
 		free(out);
-
-		cv::rectangle(rotatedMat, roi, cvScalar(0, 0, 255), 2);
-		cv::imwrite("bib-rotated.png", rotatedMat);
 	}
 }
 
@@ -472,7 +515,6 @@ namespace textdetection {
 
 TextDetector::TextDetector()
 {
-	std::cout << "TextDetector constructor" << std::endl;
 	GenericVector<STRING> pars_keys;
 	GenericVector<STRING> pars_vals;
 	pars_keys.push_back("load_system_dawg");
@@ -502,7 +544,6 @@ TextDetector::~TextDetector(void)
 {
 	tess.Clear();
 	tess.End();
-	std::cout << "TextDetector destructor" << std::endl;
 }
 
 void TextDetector::detect(IplImage * input,
