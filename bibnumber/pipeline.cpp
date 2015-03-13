@@ -22,7 +22,7 @@ static void vectorAtoi(std::vector<int>&numbers, std::vector<std::string>&text)
 }
 
 int Pipeline::processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
-#if 1
+#if 0
 	int res;
 	const double scale = 1;
 	std::vector<cv::Rect> faces;
