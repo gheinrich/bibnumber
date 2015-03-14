@@ -368,10 +368,14 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 			continue;
 		}
 
-
-		double theta_rad = atan2(bottomRight.y - bottomLeft.y,
-				bottomRight.x - bottomLeft.x);
-		double theta_deg = (theta_rad / PI) * 180;
+		/* invert direction if angle is in 3rd/4th quadrants */
+		if (chains[i].direction.x < 0 )
+		{
+			chains[i].direction.x =- chains[i].direction.x;
+			chains[i].direction.y =- chains[i].direction.y;
+		}
+		/* work out chain angle */
+		double theta_deg = 180*atan2(chains[i].direction.y,chains[i].direction.x)/PI;
 
 		if (absd(theta_deg) > params.maxAngle) {
 			LOGL(LOG_TXT_ORIENT,
@@ -443,12 +447,14 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 						cv::Point(roi.width+border,roi.height+border))));
 #endif
 
+		LOGL(LOG_TEXTREC, "ROI = " << roi);
+
 #if 1
 		/* resize image to improve OCR success rate */
 		float upscale = 3.0;
 		cv::resize(mat, mat, cvSize(0, 0), upscale, upscale);
 		/* erode text to get rid of thin joints */
-		int s = (int) (0.05 * upscale * mat_roi.rows); /* 5% of up-scaled size) */
+		int s = (int) (0.05 * mat.rows); /* 5% of up-scaled size) */
 		cv::Mat elem = cv::getStructuringElement(cv::MORPH_ELLIPSE,
 				cv::Size(2 * s + 1, 2 * s + 1), cv::Point(s, s));
 		cv::erode(mat, mat, elem);
