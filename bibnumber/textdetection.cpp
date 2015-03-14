@@ -310,12 +310,24 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		cv::Point center = cv::Point( (bb[i].first.x + bb[i].second.x /2),
 				(bb[i].first.y + bb[i].second.y /2));
 
+		/* work out if total width of chain is large enough */
 		if (bb[i].second.x - bb[i].first.x
 				< output->width / params.maxImgWidthToTextRatio )
 		{
-			std::cout << "dist =" << chains[i].dist << " square = " <<  square(output->width / params.maxImgWidthToTextRatio) << std::endl;
-
 			LOGL(LOG_TXT_ORIENT, (bb[i].second.x - bb[i].first.x) << " < " << (output->width / params.maxImgWidthToTextRatio));
+			continue;
+		}
+
+		/* eliminate chains with components of lower height than required minimum */
+		int minHeight = bb[i].second.y - bb[i].first.y;
+		for (unsigned j=0; j<chains[i].components.size(); j++)
+		{
+			minHeight = std::min(minHeight,
+					compBB[chains[i].components[j]].second.y - compBB[chains[i].components[j]].first.y);
+		}
+		if (minHeight < params.minCharacterheight)
+		{
+			LOGL(LOG_CHAINS, "Reject chain # " << i << " minHeight=" << minHeight << "<" << params.minCharacterheight );
 			continue;
 		}
 
@@ -926,10 +938,6 @@ void filterComponents(IplImage * SWTImage,
 
 		// check if the aspect ratio is between the allowed range
 		if (!ratio_within(length / width, COM_MAX_ASPECT_RATIO)) {
-			continue;
-		}
-
-		if (width < params.minCharacterheight) {
 			continue;
 		}
 
