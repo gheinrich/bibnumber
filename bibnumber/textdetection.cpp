@@ -95,51 +95,6 @@ std::vector<std::pair<CvPoint, CvPoint> > findBoundingBoxes(
 	return bb;
 }
 
-std::vector<std::vector<CvPoint> > findBoundingTrapeze(
-		std::vector<Chain> & chains,
-		std::vector<std::pair<Point2d, Point2d> > & compBB, IplImage * output) {
-	std::vector<std::vector<CvPoint> > bt;
-	bt.reserve(chains.size());
-	for (std::vector<Chain>::iterator chainit = chains.begin();
-			chainit != chains.end(); chainit++) {
-		int minx = output->width;
-		int maxx = 0;
-		int leftmostComponent = 0;
-		int rightmostComponent = 0;
-		for (std::vector<int>::const_iterator cit = chainit->components.begin();
-				cit != chainit->components.end(); cit++) {
-			if (compBB[*cit].first.x <= minx) {
-				minx = compBB[*cit].first.x;
-				leftmostComponent = *cit;
-			}
-			if (compBB[*cit].second.x >= maxx) {
-				maxx = compBB[*cit].second.x;
-				rightmostComponent = *cit;
-			}
-		}
-
-		CvPoint topLeft = cvPoint(compBB[leftmostComponent].first.x,
-				compBB[leftmostComponent].first.y);
-		CvPoint bottomLeft = cvPoint(compBB[leftmostComponent].first.x,
-				compBB[leftmostComponent].second.y);
-		CvPoint topRight = cvPoint(compBB[rightmostComponent].second.x,
-				compBB[rightmostComponent].first.y);
-		CvPoint bottomRight = cvPoint(compBB[rightmostComponent].second.x,
-				compBB[rightmostComponent].second.y);
-		std::vector<CvPoint> trapeze;
-		trapeze.push_back(topLeft);
-		trapeze.push_back(bottomLeft);
-		trapeze.push_back(topRight);
-		trapeze.push_back(bottomRight);
-		bt.push_back(trapeze);
-
-		LOGL(LOG_TXT_ORIENT,
-				"Trapeze: " << "(" << topLeft.x << "," << topLeft.y << "),(" << bottomLeft.x << "," << bottomLeft.y << "),(" << topRight.x << "," << topRight.y << "),(" << bottomRight.x << "," << bottomRight.y << ")");
-
-	}
-	return bt;
-}
-
 std::vector<std::pair<CvPoint, CvPoint> > findBoundingBoxes(
 		std::vector<std::vector<Point2d> > & components, IplImage * output) {
 	std::vector<std::pair<CvPoint, CvPoint> > bb;
@@ -296,7 +251,7 @@ void renderComponentsWithBoxes(IplImage * SWTImage,
 
 static cv::Rect getBoundingBox(std::vector<cv::Point> vec, cv::Size clip)
 {
-	int minx=1e6, miny=1e6, maxx=-1, maxy=-1;
+	int minx=clip.width-1, miny=clip.height-1, maxx=0, maxy=0;
 	for (std::vector<cv::Point>::iterator it = vec.begin(); it != vec.end();
 				it++) {
 		if (it->x < minx)
@@ -304,9 +259,9 @@ static cv::Rect getBoundingBox(std::vector<cv::Point> vec, cv::Size clip)
 		if (it->y < miny)
 			miny = std::max(it->y,0);
 		if (it->x > maxx)
-			maxx = std::min(it->x, clip.width);
+			maxx = std::min(it->x, clip.width-1);
 		if (it->y > maxy)
-			maxy = std::min(it->y, clip.height);
+			maxy = std::min(it->y, clip.height-1);
 	}
 	return cv::Rect(cv::Point(minx,miny), cv::Point(maxx,maxy));
 }
@@ -345,26 +300,22 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 	std::vector<std::pair<CvPoint, CvPoint> > bb;
 	bb = findBoundingBoxes(chains, compBB, outTemp);
 
-	std::vector<std::vector<CvPoint> > bt;
-	bt = findBoundingTrapeze(chains, compBB, outTemp);
-
 	IplImage * out = cvCreateImage(cvGetSize(output), IPL_DEPTH_8U, 1);
 	cvConvertScale(outTemp, out, 255, 0);
 	cvCvtColor(out, output, CV_GRAY2RGB);
 	cvReleaseImage(&out);
 	cvReleaseImage(&outTemp);
 
-	LOGL(LOG_TXT_ORIENT, "Reading Chains  " << bt.size() );
+	for (unsigned int i = 0; i < bb.size(); i++) {
+		cv::Point center = cv::Point( (bb[i].first.x + bb[i].second.x /2),
+				(bb[i].first.y + bb[i].second.y /2));
 
-	for (unsigned int i = 0; i < bt.size(); i++) {
-		CvPoint topLeft = bt[i][0];
-		CvPoint bottomLeft = bt[i][1];
-		CvPoint bottomRight = bt[i][3];
-
-		if (bottomRight.x - topLeft.x
-				< output->width / params.maxImgWidthToTextRatio)
+		if (bb[i].second.x - bb[i].first.x
+				< output->width / params.maxImgWidthToTextRatio )
 		{
-			LOGL(LOG_TXT_ORIENT, (bottomRight.x - topLeft.x) << " < " << (output->width / params.maxImgWidthToTextRatio));
+			std::cout << "dist =" << chains[i].dist << " square = " <<  square(output->width / params.maxImgWidthToTextRatio) << std::endl;
+
+			LOGL(LOG_TXT_ORIENT, (bb[i].second.x - bb[i].first.x) << " < " << (output->width / params.maxImgWidthToTextRatio));
 			continue;
 		}
 
@@ -412,7 +363,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		}
 		cv::imwrite("bib-components.png", componentsImg);
 
-		cv::Mat rotMatrix = cv::getRotationMatrix2D(bottomLeft, theta_deg, 1.0);
+		cv::Mat rotMatrix = cv::getRotationMatrix2D(center, theta_deg, 1.0);
 
 
 		cv::Mat rotatedMat = cv::Mat::zeros(inputMat.rows, inputMat.cols,
@@ -420,7 +371,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		cv::warpAffine(componentsImg, rotatedMat, rotMatrix, rotatedMat.size());
 		cv::imwrite("bib-rotated.png", rotatedMat);
 
-#if 1
+#if 0
 		CvPoint newTopLeft = cvPoint(std::max(0, topLeft.x - 4),
 				std::max(0, topLeft.y - 4));
 		CvPoint newBottomRight = cvPoint(
@@ -436,6 +387,10 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 		cv::transform(compCoords,compCoords,rotMatrix);
 		/* find bounding box of rotated components */
 		cv::Rect roi = getBoundingBox(compCoords, cv::Size(output->width, output->height) );
+		/* ROI area can be null if outside of clipping area */
+		if ( (roi.width==0) || (roi.height==0))
+			continue;
+		LOGL(LOG_TEXTREC, "ROI = " << roi);
 		cv::Mat mat = cv::Mat::zeros(roi.height + 2*border, roi.width + 2*border,
 								inputMat.type());
 		cv::Mat tmp = rotatedMat(roi);
@@ -446,8 +401,6 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 						cv::Point(border,border),
 						cv::Point(roi.width+border,roi.height+border))));
 #endif
-
-		LOGL(LOG_TEXTREC, "ROI = " << roi);
 
 #if 1
 		/* resize image to improve OCR success rate */

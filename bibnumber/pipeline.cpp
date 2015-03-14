@@ -77,7 +77,7 @@ int Pipeline::processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 
 		cv::Mat subImage(img, roi);
 		IplImage ipl_img = subImage;
-		if ( //(i==2) &&
+		if ( //(i==10) &&
 				(1)) {
 			std::vector<std::string> text;
 			const struct TextDetectionParams params = {
@@ -104,7 +104,7 @@ int Pipeline::processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 						15, /* maxStrokeLength */
 						11, /* minCharacterHeight */
 						100, /* maxImgWidthToTextRatio */
-						15, /* maxAngle */
+						45, /* maxAngle */
 						img.rows * 10/100, /* topBorder: discard top 10% */
 						img.rows * 5/100,  /* bottomBorder: discard bottom 5% */
 				};
