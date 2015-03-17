@@ -3,6 +3,7 @@
 
 #include "opencv2/imgproc/imgproc.hpp"
 #include "textdetection.h"
+#include "textrecognition.h"
 
 namespace pipeline
 {
@@ -11,6 +12,7 @@ namespace pipeline
 		int processImage(cv::Mat& img, std::vector<int>& bibNumbers);
 	private:
 		textdetection::TextDetector textDetector;
+		textrecognition::TextRecognizer textRecognizer;
 	};
 
 }

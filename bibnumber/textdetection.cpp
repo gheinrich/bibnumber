@@ -37,10 +37,6 @@
 #include <vector>
 #include "textdetection.h"
 
-#include <tesseract/baseapi.h>
-#include <tesseract/strngs.h>
-#include <tesseract/genericvector.h>
-
 #include "log.h"
 
 #define PI 3.14159265
@@ -56,17 +52,6 @@ static inline int square(int x) {
 
 static int inline ratio_within(float ratio, float max_ratio) {
 	return ((ratio < max_ratio) && (ratio > 1 / max_ratio));
-}
-
-static bool is_number(const std::string& s) {
-	std::string::const_iterator it = s.begin();
-	while (it != s.end() && std::isdigit(*it))
-		++it;
-	return !s.empty() && it == s.end();
-}
-
-static double absd(double x) {
-	return x > 0 ? x : -x;
 }
 
 std::vector<std::pair<CvPoint, CvPoint> > findBoundingBoxes(
@@ -249,30 +234,12 @@ void renderComponentsWithBoxes(IplImage * SWTImage,
 	}
 }
 
-static cv::Rect getBoundingBox(std::vector<cv::Point> vec, cv::Size clip)
-{
-	int minx=clip.width-1, miny=clip.height-1, maxx=0, maxy=0;
-	for (std::vector<cv::Point>::iterator it = vec.begin(); it != vec.end();
-				it++) {
-		if (it->x < minx)
-			minx = std::max(it->x,0);
-		if (it->y < miny)
-			miny = std::max(it->y,0);
-		if (it->x > maxx)
-			maxx = std::min(it->x, clip.width-1);
-		if (it->y > maxy)
-			maxy = std::min(it->y, clip.height-1);
-	}
-	return cv::Rect(cv::Point(minx,miny), cv::Point(maxx,maxy));
-}
-
 void renderChainsWithBoxes(IplImage * SWTImage,
 		std::vector<std::vector<Point2d> > & components,
 		std::vector<Chain> & chains,
-		std::vector<std::pair<Point2d, Point2d> > & compBB, IplImage * output,
-		IplImage * input, const struct TextDetectionParams &params,
-		tesseract::TessBaseAPI &tess,
-		std::vector<std::string>& text) {
+		std::vector<std::pair<Point2d, Point2d> > & compBB,
+		std::vector<std::pair<CvPoint, CvPoint> > & bb,
+		IplImage * output) {
 	// keep track of included components
 	std::vector<bool> included;
 	included.reserve(components.size());
@@ -297,7 +264,7 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 	LOGL(LOG_CHAINS, componentsRed.size() << " components after chaining");
 
 	renderComponents(SWTImage, componentsRed, outTemp);
-	std::vector<std::pair<CvPoint, CvPoint> > bb;
+
 	bb = findBoundingBoxes(chains, compBB, outTemp);
 
 	IplImage * out = cvCreateImage(cvGetSize(output), IPL_DEPTH_8U, 1);
@@ -305,152 +272,6 @@ void renderChainsWithBoxes(IplImage * SWTImage,
 	cvCvtColor(out, output, CV_GRAY2RGB);
 	cvReleaseImage(&out);
 	cvReleaseImage(&outTemp);
-
-	for (unsigned int i = 0; i < bb.size(); i++) {
-		cv::Point center = cv::Point( (bb[i].first.x + bb[i].second.x /2),
-				(bb[i].first.y + bb[i].second.y /2));
-
-		/* work out if total width of chain is large enough */
-		if (bb[i].second.x - bb[i].first.x
-				< output->width / params.maxImgWidthToTextRatio )
-		{
-			LOGL(LOG_TXT_ORIENT, (bb[i].second.x - bb[i].first.x) << " < " << (output->width / params.maxImgWidthToTextRatio));
-			continue;
-		}
-
-		/* eliminate chains with components of lower height than required minimum */
-		int minHeight = bb[i].second.y - bb[i].first.y;
-		for (unsigned j=0; j<chains[i].components.size(); j++)
-		{
-			minHeight = std::min(minHeight,
-					compBB[chains[i].components[j]].second.y - compBB[chains[i].components[j]].first.y);
-		}
-		if (minHeight < params.minCharacterheight)
-		{
-			LOGL(LOG_CHAINS, "Reject chain # " << i << " minHeight=" << minHeight << "<" << params.minCharacterheight );
-			continue;
-		}
-
-		/* invert direction if angle is in 3rd/4th quadrants */
-		if (chains[i].direction.x < 0 )
-		{
-			chains[i].direction.x =- chains[i].direction.x;
-			chains[i].direction.y =- chains[i].direction.y;
-		}
-		/* work out chain angle */
-		double theta_deg = 180*atan2(chains[i].direction.y,chains[i].direction.x)/PI;
-
-		if (absd(theta_deg) > params.maxAngle) {
-			LOGL(LOG_TXT_ORIENT,
-					"Chain angle " << theta_deg << " exceeds max " << params.maxAngle);
-			continue;
-		}
-		LOGL(LOG_TXT_ORIENT, "Chain Angle: " << theta_deg << " degrees");
-
-		/* create copy of input image including only the selected components */
-		cv::Mat inputMat = cv::Mat(input);
-		cv::Mat componentsImg = cv::Mat::zeros(inputMat.rows, inputMat.cols,
-				inputMat.type());
-
-		std::vector<cv::Point> compCoords;
-
-		for (unsigned int j = 0; j < chains[i].components.size(); j++) {
-			int component_id = chains[i].components[j];
-			cv::Rect roi = cv::Rect(compBB[component_id].first.x,
-					compBB[component_id].first.y,
-					compBB[component_id].second.x
-							- compBB[component_id].first.x,
-					compBB[component_id].second.y
-							- compBB[component_id].first.y);
-			cv::Mat componentRoi = inputMat(roi);
-
-			compCoords.push_back(cv::Point(compBB[component_id].first.x,compBB[component_id].first.y));
-			compCoords.push_back(cv::Point(compBB[component_id].second.x,compBB[component_id].second.y));
-			compCoords.push_back(cv::Point(compBB[component_id].first.x,compBB[component_id].second.y));
-			compCoords.push_back(cv::Point(compBB[component_id].second.x,compBB[component_id].first.y));
-
-			cv::threshold(componentRoi, componentsImg(roi), 0 // the value doesn't matter for Otsu thresholding
-					, 255 // we could choose any non-zero value. 255 (white) makes it easy to see the binary image
-					, cv::THRESH_OTSU | cv::THRESH_BINARY_INV);
-		}
-		cv::imwrite("bib-components.png", componentsImg);
-
-		cv::Mat rotMatrix = cv::getRotationMatrix2D(center, theta_deg, 1.0);
-
-
-		cv::Mat rotatedMat = cv::Mat::zeros(inputMat.rows, inputMat.cols,
-				inputMat.type());
-		cv::warpAffine(componentsImg, rotatedMat, rotMatrix, rotatedMat.size());
-		cv::imwrite("bib-rotated.png", rotatedMat);
-
-#if 0
-		CvPoint newTopLeft = cvPoint(std::max(0, topLeft.x - 4),
-				std::max(0, topLeft.y - 4));
-		CvPoint newBottomRight = cvPoint(
-				std::min(inputMat.cols, bottomRight.x + 4),
-				std::min(inputMat.rows, bottomLeft.y + 2));
-		cv::Rect roi = cv::Rect(newTopLeft, newBottomRight);
-		cv::Mat mat_roi = rotatedMat(roi);
-		cv::Mat mat = mat_roi;
-
-#else
-		/* rotate each component coordinates */
-		const int border = 3;
-		cv::transform(compCoords,compCoords,rotMatrix);
-		/* find bounding box of rotated components */
-		cv::Rect roi = getBoundingBox(compCoords, cv::Size(output->width, output->height) );
-		/* ROI area can be null if outside of clipping area */
-		if ( (roi.width==0) || (roi.height==0))
-			continue;
-		LOGL(LOG_TEXTREC, "ROI = " << roi);
-		cv::Mat mat = cv::Mat::zeros(roi.height + 2*border, roi.width + 2*border,
-								inputMat.type());
-		cv::Mat tmp = rotatedMat(roi);
-		/* copy bounded box from rotated mat to new mat with borders - borders are needed
-		 * to improve OCR success rate
-		 */
-		tmp.copyTo(mat(cv::Rect(
-						cv::Point(border,border),
-						cv::Point(roi.width+border,roi.height+border))));
-#endif
-
-#if 1
-		/* resize image to improve OCR success rate */
-		float upscale = 3.0;
-		cv::resize(mat, mat, cvSize(0, 0), upscale, upscale);
-		/* erode text to get rid of thin joints */
-		int s = (int) (0.05 * mat.rows); /* 5% of up-scaled size) */
-		cv::Mat elem = cv::getStructuringElement(cv::MORPH_ELLIPSE,
-				cv::Size(2 * s + 1, 2 * s + 1), cv::Point(s, s));
-		cv::erode(mat, mat, elem);
-#endif
-		cv::imwrite("bib-tess-input.png", mat);
-
-		// Pass it to Tesseract API
-		tess.SetImage((uchar*) mat.data, mat.cols, mat.rows, 1, mat.step1());
-		// Get the text
-		char* out = tess.GetUTF8Text();
-		do {
-			if (strlen(out) == 0) {
-				break;
-			}
-			std::string s_out(out);
-			boost::algorithm::trim(s_out);
-
-			if (s_out.size() != chains[i].components.size()) {
-				LOGL(LOG_TEXTREC,
-						"Text size mismatch: expected " << chains[i].components.size() << " digits, got '" << s_out << "' (" << s_out.size() << " digits)");
-				break;
-			}
-			if (!is_number(s_out)) {
-				LOGL(LOG_TEXTREC, "Text is not a number ('" << s_out << "')");
-				break;
-			}
-			text.push_back(s_out);
-			LOGL(LOG_TEXTREC, "Mat text: " << s_out);
-		} while (0);
-		free(out);
-	}
 }
 
 void renderChains(IplImage * SWTImage,
@@ -486,39 +307,17 @@ namespace textdetection {
 
 TextDetector::TextDetector()
 {
-	GenericVector<STRING> pars_keys;
-	GenericVector<STRING> pars_vals;
-	pars_keys.push_back("load_system_dawg");
-	pars_vals.push_back("F");
-	pars_keys.push_back("load_freq_dawg");
-	pars_vals.push_back("F");
-	pars_keys.push_back("load_punc_dawg");
-	pars_vals.push_back("F");
-	pars_keys.push_back("load_number_dawg");
-	pars_vals.push_back("F");
-	pars_keys.push_back("load_unambig_dawg");
-	pars_vals.push_back("F");
-	pars_keys.push_back("load_bigram_dawg");
-	pars_vals.push_back("F");
-	pars_keys.push_back("load_fixed_length_dawgs");
-	pars_vals.push_back("F");
-	tess.Init(NULL, "eng", tesseract::OEM_DEFAULT, NULL, 0,
-			&pars_keys, &pars_vals, false);
-	#if 0
-	tess.SetVariable("tessedit_char_whitelist", "0123456789");
-	#endif
-	tess.SetVariable("tessedit_write_images", "true");
-	tess.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
 }
 
 TextDetector::~TextDetector(void)
 {
-	tess.Clear();
-	tess.End();
 }
 
 void TextDetector::detect(IplImage * input,
 		const struct TextDetectionParams &params,
+		std::vector<Chain> &chains,
+		std::vector<std::pair<Point2d, Point2d> > &compBB,
+		std::vector<std::pair<CvPoint, CvPoint> > &chainBB,
 		std::vector<std::string> &text) {
 	assert(input->depth == IPL_DEPTH_8U);
 	assert(input->nChannels == 3);
@@ -577,7 +376,6 @@ void TextDetector::detect(IplImage * input,
 
 	// Filter the components
 	std::vector<std::vector<Point2d> > validComponents;
-	std::vector<std::pair<Point2d, Point2d> > compBB;
 	std::vector<Point2dFloat> compCenters;
 	std::vector<float> compMedians;
 	std::vector<Point2d> compDimensions;
@@ -590,16 +388,16 @@ void TextDetector::detect(IplImage * input,
 	cvReleaseImage ( &output3 );
 
 	// Make chains of components
-	std::vector<Chain> chains;
 	chains = makeChains(input, validComponents, compCenters, compMedians,
 			compDimensions, compBB);
 
-	IplImage * output = cvCreateImage(cvGetSize(input), IPL_DEPTH_8U, 3);
-	renderChainsWithBoxes(SWTImage, validComponents, chains, compBB, output,
-			grayImage, params, tess, text);
+	IplImage * output = cvCreateImage(cvGetSize(grayImage), IPL_DEPTH_8U, 3);
+	renderChainsWithBoxes(SWTImage, validComponents, chains, compBB, chainBB, output);
 	cvSaveImage("text-boxes.png", output);
-	cvReleaseImage(&output);
 
+
+
+	cvReleaseImage(&output);
 	cvReleaseImage(&gradientX);
 	cvReleaseImage(&gradientY);
 	cvReleaseImage(&SWTImage);

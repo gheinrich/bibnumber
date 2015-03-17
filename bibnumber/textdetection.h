@@ -116,6 +116,9 @@ public:
 	~TextDetector(void);
 	void detect (IplImage *    float_input,
 	                    const struct TextDetectionParams &params,
+	                    std::vector<Chain> &chains,
+	                    std::vector<std::pair<Point2d, Point2d> > &compBB,
+	                    std::vector<std::pair<CvPoint, CvPoint> > &chainBB,
 	                    std::vector<std::string>& text);
 private:
 	tesseract::TessBaseAPI tess;
