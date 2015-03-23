@@ -21,6 +21,8 @@ namespace textrecognition
 			           std::vector<std::string>& text);
 	private:
 		tesseract::TessBaseAPI tess;
+		int dsid; /* digit sequence id */
+		int bsid; /* bib sequence id */
 	};
 
 }

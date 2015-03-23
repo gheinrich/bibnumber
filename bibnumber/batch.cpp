@@ -5,7 +5,6 @@
 #include <vector>
 #include <string>
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/bimap.hpp>
 #include <boost/bimap/set_of.hpp>
 #include <boost/bimap/multiset_of.hpp>
@@ -48,19 +47,6 @@ private:
 std::istream& operator>>(std::istream& str, CSVRow& data) {
 	data.readNextRow(str);
 	return str;
-}
-
-static bool isImageFile(std::string name) {
-	std::string lower_case(name);
-	std::transform(lower_case.begin(), lower_case.end(), lower_case.begin(),
-			::tolower);
-
-	if ((boost::algorithm::ends_with(lower_case, ".jpg"))
-			|| (boost::algorithm::ends_with(lower_case, ".png")))
-		return true;
-	else
-		return false;
-
 }
 
 #if 0
@@ -121,6 +107,38 @@ static int exists(std::vector<int> arr, int item) {
 }
 
 namespace batch {
+
+bool isImageFile(std::string name) {
+	std::string lower_case(name);
+	std::transform(lower_case.begin(), lower_case.end(), lower_case.begin(),
+			::tolower);
+
+	if ((boost::algorithm::ends_with(lower_case, ".jpg"))
+			|| (boost::algorithm::ends_with(lower_case, ".png")))
+		return true;
+	else
+		return false;
+
+}
+
+std::vector<fs::path> getImageFiles(std::string dir)
+{
+	std::vector<fs::path> paths; // vector of paths in directory
+	std::copy(fs::directory_iterator(dir), fs::directory_iterator(),
+				back_inserter(paths));
+	// sort, since directory iteration
+	// is not ordered on some file systems
+	sort(paths.begin(), paths.end());
+
+	std::vector<fs::path> imgFiles;;
+	for (std::vector<fs::path>::const_iterator it(paths.begin());
+				it != paths.end(); ++it) {
+		if (batch::isImageFile(it->string())) {
+			imgFiles.push_back(*it);
+		}
+	}
+	return imgFiles;
+}
 
 int process(std::string inputName) {
 	int res;
@@ -217,14 +235,7 @@ int process(std::string inputName) {
 		/* set log mask to minimum */
 		biblog::set_log_mask(LOG_NONE);
 
-		std::vector<fs::path> paths; // vector of paths in directory
 		std::vector<fs::path> img_paths; // vector of image paths
-
-		std::copy(fs::directory_iterator(inputName), fs::directory_iterator(),
-				back_inserter(paths));
-
-		sort(paths.begin(), paths.end()); // sort, since directory iteration
-		// is not ordered on some file systems
 
 		typedef boost::bimap<bimaps::multiset_of<std::string>,
 				bimaps::multiset_of<int> > imgTagBimap;
@@ -232,12 +243,7 @@ int process(std::string inputName) {
 		imgTagBimap tags;
 
 		/* find images in directory */
-		for (std::vector<fs::path>::const_iterator it(paths.begin());
-				it != paths.end(); ++it) {
-			if (isImageFile(it->string())) {
-				img_paths.push_back(*it);
-			}
-		}
+		img_paths = getImageFiles(inputName);
 
 		/* process images */
 		for (int i = 0, j=img_paths.size(); i<j ; i++) {

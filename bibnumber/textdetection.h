@@ -120,8 +120,6 @@ public:
 	                    std::vector<std::pair<Point2d, Point2d> > &compBB,
 	                    std::vector<std::pair<CvPoint, CvPoint> > &chainBB,
 	                    std::vector<std::string>& text);
-private:
-	tesseract::TessBaseAPI tess;
 };
 
 }
