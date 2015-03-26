@@ -250,6 +250,7 @@ int TextRecognizer::recognize(IplImage *input,
 			text.push_back(s_out);
 			LOGL(LOG_TEXTREC, "Mat text: " << s_out);
 
+#if 0
 			/* save all individual digits for subsequent learning */
 			for (unsigned int j = 0; j < chains[i].components.size(); j++) {
 				int component_id = chains[i].components[j];
@@ -262,10 +263,11 @@ int TextRecognizer::recognize(IplImage *input,
 						midy - 3 * width / 2, width, 3 * width);
 				cv::Mat digitMat = grayMat(roi);
 				char *filename;
-				asprintf(&filename, "digit-%d.png", this->dsid++);
+				asprintf(&filename, "digit-%c-%04d.png", out[j], this->dsid++);
 				cv::imwrite(filename, digitMat);
 				free(filename);
 			}
+#endif
 
 			/* save whole bib image */
 
@@ -280,11 +282,16 @@ int TextRecognizer::recognize(IplImage *input,
 				int midy = (chainBB[i].first.y + chainBB[i].second.y) / 2;
 				cv::Rect roi = cv::Rect(midx - width/2, midy - height/2,
 						width, height);
-				cv::Mat bibMat = inputMat(roi);
-				char *filename;
-				asprintf(&filename, "bib-%04d.png", this->bsid++);
-				cv::imwrite(filename, bibMat);
-				free(filename);
+				if ( (roi.x>=0) && (roi.y>=0) && (roi.x+roi.width<inputMat.cols)
+						&& (roi.y+roi.height<inputMat.rows) )
+				{
+					cv::Mat bibMat = inputMat(roi);
+					char *filename;
+					asprintf(&filename, "bib-%05d-%04d.png",
+							this->bsid++, atoi(out));
+					cv::imwrite(filename, bibMat);
+					free(filename);
+				}
 			}
 
 		} while (0);

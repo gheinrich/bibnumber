@@ -235,7 +235,7 @@ int process(std::string trainDir, std::string inputDir) {
 			<< " image data in " << inputDir << std::endl;
 	std::vector<fs::path> fullImgFiles = batch::getImageFiles(inputDir);
 
-	const int nRandomNegativesPerImage = 100;
+	const int nRandomNegativesPerImage = 5;
 	unsigned int nPositives = positiveImgFiles.size();
 	unsigned int nNegatives = fullImgFiles.size() * nRandomNegativesPerImage;
 	unsigned int rows = nPositives + nNegatives; /* one row per training example */
@@ -283,6 +283,7 @@ int process(std::string trainDir, std::string inputDir) {
 	params.term_crit = cvTermCriteria( CV_TERMCRIT_ITER, 10000, 1e-6);
 
 	svm.train(trainingData, labels, cv::Mat(), cv::Mat(), params);
+	svm.save("svm.xml");
 
 	for (unsigned int i = 0; i < rows; i++) {
 		float prediction = svm.predict(trainingData.row(i));
