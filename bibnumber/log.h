@@ -9,6 +9,7 @@
 #define LOG_TXT_ORIENT (1<<1)
 #define LOG_COMPONENTS (1<<2)
 #define LOG_TEXTREC (1<<3)
+#define LOG_SVM (1<<4)
 #define LOG_ALL (0xFFFFFFFF)
 #define LOG_NONE (0)
 

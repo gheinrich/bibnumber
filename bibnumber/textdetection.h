@@ -54,6 +54,7 @@ struct TextDetectionParams {
 	float maxAngle;
 	int topBorder;
 	int bottomBorder;
+	unsigned int minChainLen;
 };
 
 struct Chain {
@@ -105,7 +106,7 @@ std::vector<Chain> makeChains( IplImage * colorImage,
                  std::vector<Point2dFloat> & compCenters,
                  std::vector<float> & compMedians,
                  std::vector<Point2d> & compDimensions,
-                 std::vector<std::pair<Point2d,Point2d> > & compBB);
+                 const struct TextDetectionParams &params);
 
 namespace textdetection {
 
@@ -118,8 +119,7 @@ public:
 	                    const struct TextDetectionParams &params,
 	                    std::vector<Chain> &chains,
 	                    std::vector<std::pair<Point2d, Point2d> > &compBB,
-	                    std::vector<std::pair<CvPoint, CvPoint> > &chainBB,
-	                    std::vector<std::string>& text);
+	                    std::vector<std::pair<CvPoint, CvPoint> > &chainBB);
 };
 
 }

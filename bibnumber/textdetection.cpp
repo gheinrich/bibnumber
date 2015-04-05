@@ -317,8 +317,7 @@ void TextDetector::detect(IplImage * input,
 		const struct TextDetectionParams &params,
 		std::vector<Chain> &chains,
 		std::vector<std::pair<Point2d, Point2d> > &compBB,
-		std::vector<std::pair<CvPoint, CvPoint> > &chainBB,
-		std::vector<std::string> &text) {
+		std::vector<std::pair<CvPoint, CvPoint> > &chainBB) {
 	assert(input->depth == IPL_DEPTH_8U);
 	assert(input->nChannels == 3);
 	// Convert to grayscale
@@ -389,7 +388,7 @@ void TextDetector::detect(IplImage * input,
 
 	// Make chains of components
 	chains = makeChains(input, validComponents, compCenters, compMedians,
-			compDimensions, compBB);
+			compDimensions, params);
 
 	IplImage * output = cvCreateImage(cvGetSize(grayImage), IPL_DEPTH_8U, 3);
 	renderChainsWithBoxes(SWTImage, validComponents, chains, compBB, chainBB, output);
@@ -861,7 +860,7 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 		std::vector<std::vector<Point2d> > & components,
 		std::vector<Point2dFloat> & compCenters,
 		std::vector<float> & compMedians, std::vector<Point2d> & compDimensions,
-		std::vector<std::pair<Point2d, Point2d> > & compBB) {
+		const struct TextDetectionParams &params) {
 	assert(compCenters.size() == components.size());
 	// make vector of color averages
 	std::vector<Point3dFloat> colorAverages;
@@ -1192,12 +1191,15 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 	newchains.reserve(chains.size());
 	for (std::vector<Chain>::iterator cit = chains.begin(); cit != chains.end();
 			cit++) {
-		if (cit->components.size() >= 3) {
-			/* remove duplicates */
-			std::sort(cit->components.begin(), cit->components.end());
-			cit->components.erase(
-					std::unique(cit->components.begin(), cit->components.end()),
-					cit->components.end());
+
+		/* remove duplicates */
+		std::sort(cit->components.begin(), cit->components.end());
+		cit->components.erase(
+		std::unique(cit->components.begin(), cit->components.end()),
+		cit->components.end());
+
+		/* only add chains longer than minimum size */
+		if (cit->components.size() >= params.minChainLen) {
 			newchains.push_back(*cit);
 		}
 	}

@@ -21,7 +21,10 @@ static void vectorAtoi(std::vector<int>&numbers, std::vector<std::string>&text)
 	}
 }
 
-int Pipeline::processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
+int Pipeline::processImage(
+		cv::Mat& img,
+		std::string svmModel,
+		std::vector<int>& bibNumbers) {
 #if 0
 	int res;
 	const double scale = 1;
@@ -88,6 +91,7 @@ int Pipeline::processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 					15, /* maxAngle */
 					0, /* topBorder: don't discard anything */
 					0,  /* bottomBorder: don't discard anything */
+					3, /* min chain length */
 			};
 			textDetector.detect(&ipl_img, params, text);
 			vectorAtoi(bibNumbers, text);
@@ -107,12 +111,13 @@ int Pipeline::processImage(cv::Mat& img, std::vector<int>& bibNumbers) {
 						45, /* maxAngle */
 						img.rows * 10/100, /* topBorder: discard top 10% */
 						img.rows * 5/100,  /* bottomBorder: discard bottom 5% */
+						3, /* min chain len */
 				};
 	std::vector<Chain> chains;
 	std::vector<std::pair<Point2d, Point2d> > compBB;
 	std::vector<std::pair<CvPoint, CvPoint> > chainBB;
-	textDetector.detect(&ipl_img, params, chains, compBB, chainBB, text);
-	textRecognizer.recognize(&ipl_img, params, chains, compBB, chainBB, text);
+	textDetector.detect(&ipl_img, params, chains, compBB, chainBB);
+	textRecognizer.recognize(&ipl_img, params, svmModel, chains, compBB, chainBB, text);
 	vectorAtoi(bibNumbers, text);
 #endif
 	cv::imwrite("face-detection.png", img);

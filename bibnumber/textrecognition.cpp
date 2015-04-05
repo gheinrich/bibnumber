@@ -6,6 +6,7 @@
 
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
+#include <opencv2/ml/ml.hpp>
 
 #include "textrecognition.h"
 #include "log.h"
@@ -78,7 +79,8 @@ TextRecognizer::~TextRecognizer(void) {
 }
 
 int TextRecognizer::recognize(IplImage *input,
-		const struct TextDetectionParams &params, std::vector<Chain> &chains,
+		const struct TextDetectionParams &params, std::string svmModel,
+		std::vector<Chain> &chains,
 		std::vector<std::pair<Point2d, Point2d> > &compBB,
 		std::vector<std::pair<CvPoint, CvPoint> > &chainBB,
 		std::vector<std::string>& text) {
@@ -171,7 +173,7 @@ int TextRecognizer::recognize(IplImage *input,
 #if 0
 			cv::Moments mu = cv::moments(thresholded, true);
 			std::cout << "mu02=" << mu.mu02 << " mu11=" << mu.mu11 << " skew="
-					<< mu.mu11 / mu.mu02 << std::endl;
+			<< mu.mu11 / mu.mu02 << std::endl;
 #endif
 			cv::imwrite("thresholded.png", thresholded);
 
@@ -258,7 +260,7 @@ int TextRecognizer::recognize(IplImage *input,
 				int midy = (compBB[component_id].first.y
 						+ compBB[component_id].second.y) / 2;
 				int width = compBB[component_id].second.x
-						- compBB[component_id].first.x;
+				- compBB[component_id].first.x;
 				cv::Rect roi = cv::Rect(compBB[component_id].first.x,
 						midy - 3 * width / 2, width, 3 * width);
 				cv::Mat digitMat = grayMat(roi);
@@ -271,27 +273,51 @@ int TextRecognizer::recognize(IplImage *input,
 
 			/* save whole bib image */
 
-			/* only if orientation is ~horizontal */
-			if (abs(theta_deg) < 6) {
-				/* adjust width to size of 6 digits */
-				int width = 6 * (chainBB[i].second.x - chainBB[i].first.x)
-						/ s_out.size();
-				/* adjust to 2 width/height aspect ratio */
-				int height = width / 2;
-				int midx = (chainBB[i].first.x + chainBB[i].second.x) / 2;
-				int midy = (chainBB[i].first.y + chainBB[i].second.y) / 2;
-				cv::Rect roi = cv::Rect(midx - width/2, midy - height/2,
-						width, height);
-				if ( (roi.x>=0) && (roi.y>=0) && (roi.x+roi.width<inputMat.cols)
-						&& (roi.y+roi.height<inputMat.rows) )
-				{
-					cv::Mat bibMat = inputMat(roi);
+			/* adjust width to size of 6 digits */
+			int width = 6 * (chainBB[i].second.x - chainBB[i].first.x)
+					/ s_out.size();
+			/* adjust to 2 width/height aspect ratio */
+			int height = width / 2;
+			int midx = (chainBB[i].first.x + chainBB[i].second.x) / 2;
+			int midy = (chainBB[i].first.y + chainBB[i].second.y) / 2;
+			cv::Rect roi = cv::Rect(midx - width / 2, midy - height / 2, width,
+					height);
+			if ((roi.x >= 0) && (roi.y >= 0)
+					&& (roi.x + roi.width < inputMat.cols)
+					&& (roi.y + roi.height < inputMat.rows)) {
+				cv::Mat bibMat = inputMat(roi);
+
+				/* save for training only if orientation is ~horizontal */
+				if (abs(theta_deg) < 6) {
 					char *filename;
-					asprintf(&filename, "bib-%05d-%04d.png",
-							this->bsid++, atoi(out));
+					asprintf(&filename, "bib-%05d-%04d.png", this->bsid++,
+							atoi(out));
 					cv::imwrite(filename, bibMat);
 					free(filename);
 				}
+
+				/* if we have an SVM Model, predict */
+				if (!svmModel.empty()) {
+					CvSVM svm;
+					cv::HOGDescriptor hog(cv::Size(128, 64), /* windows size */
+					cv::Size(16, 16), /* block size */
+					cv::Size(8, 8), /* block stride */
+					cv::Size(8, 8), /* cell size */
+					9 /* nbins */
+					);
+					std::vector<float> descriptor;
+
+					/* resize to HOGDescriptor dimensions */
+					cv::Mat resizedMat;
+					cv::resize(bibMat, resizedMat, hog.winSize, 0, 0);
+					hog.compute(resizedMat, descriptor);
+
+					/* load SVM model */
+					svm.load(svmModel.c_str());
+					float prediction = svm.predict(cv::Mat(descriptor).t());
+					LOGL(LOG_SVM, "Prediction=" << prediction);
+				}
+
 			}
 
 		} while (0);

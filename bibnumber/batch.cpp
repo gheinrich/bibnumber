@@ -66,8 +66,10 @@ int batch(const char *path) {
 
 static int processSingleImage(
 		std::string fileName,
+		std::string svmModel,
 		pipeline::Pipeline &pipeline,
-		std::vector<int>& bibNumbers) {
+		std::vector<int>& bibNumbers)
+{
 	int res;
 
 	std::cout << "Processing file " << fileName << std::endl;
@@ -80,7 +82,7 @@ static int processSingleImage(
 	}
 
 	/* process image */
-	res = pipeline.processImage(image, bibNumbers);
+	res = pipeline.processImage(image, svmModel, bibNumbers);
 	if (res < 0) {
 		std::cerr << "ERROR: Could not process image" << std::endl;
 		return -1;
@@ -140,7 +142,7 @@ std::vector<fs::path> getImageFiles(std::string dir)
 	return imgFiles;
 }
 
-int process(std::string inputName) {
+int process(std::string inputName, std::string svmModel) {
 	int res;
 
 	std::string resultFileName("out.csv");
@@ -159,7 +161,7 @@ int process(std::string inputName) {
 
 		if (isImageFile(inputName)) {
 			std::vector<int> bibNumbers;
-			res = processSingleImage(inputName, pipeline, bibNumbers);
+			res = processSingleImage(inputName, svmModel, pipeline, bibNumbers);
 		} else if (boost::algorithm::ends_with(name, ".csv")) {
 
 			int true_positives = 0;
@@ -182,7 +184,7 @@ int process(std::string inputName) {
 				fs::path file(filename);
 				fs::path full_path = dirname / file;
 
-				processSingleImage(full_path.string(), pipeline, bibNumbers);
+				processSingleImage(full_path.string(), svmModel, pipeline, bibNumbers);
 
 				for (unsigned int i = 1; i < row.size(); i++)
 					groundTruthNumbers.push_back(atoi(row[i].c_str()));
@@ -250,7 +252,7 @@ int process(std::string inputName) {
 			std::vector<int> bibNumbers;
 
 			std::cout << std::endl << "[" << i+1 << "/" << j << "] ";
-			res = processSingleImage(img_paths[i].string(), pipeline, bibNumbers);
+			res = processSingleImage(img_paths[i].string(), svmModel, pipeline, bibNumbers);
 
 			for (unsigned int k = 0; k < bibNumbers.size(); k++) {
 				tags.insert(

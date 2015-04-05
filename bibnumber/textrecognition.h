@@ -15,6 +15,7 @@ namespace textrecognition
 		~TextRecognizer(void);
 		int recognize (IplImage *input,
 	   	               const struct TextDetectionParams &params,
+	   	               std::string svmModel,
 		               std::vector<Chain> &chains,
 			           std::vector<std::pair<Point2d, Point2d> > &compBB,
 			           std::vector<std::pair<CvPoint, CvPoint> > &chainBB,

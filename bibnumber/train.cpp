@@ -209,6 +209,10 @@ static void computeHOGDescriptor(const std::string filename,
 	cv::imwrite("hog-viz.png", visualImage);
 }
 
+static inline double square(double x) {
+	return x * x;
+}
+
 namespace train {
 
 int process(std::string trainDir, std::string inputDir) {
@@ -244,6 +248,7 @@ int process(std::string trainDir, std::string inputDir) {
 	cv::Mat trainingData(rows, cols, CV_32FC1);
 
 	/* compute features for positive examples */
+	cv::Mat aggregateDescriptor(1, cols, CV_32FC1, cv::Scalar(0));
 	for (unsigned i = 0; i < nPositives; i++) {
 		std::cout << "Opening positive example " << positiveImgFiles[i].string()
 				<< std::endl;
@@ -251,7 +256,16 @@ int process(std::string trainDir, std::string inputDir) {
 		computeHOGDescriptor(positiveImgFiles[i].string().c_str(), descriptor,
 				hog);
 		trainingData.row(i) = cv::Mat(descriptor).t();
+		aggregateDescriptor += trainingData.row(i);
 	}
+
+	aggregateDescriptor /= nPositives;
+	const float*p = aggregateDescriptor.ptr<float>(0);
+	std::vector<float> vec(p, p+aggregateDescriptor.cols);
+	cv::Mat zMat = cv::Mat::zeros(hog.winSize,CV_32FC1);
+	cv::Mat visualImage = get_hogdescriptor_visual_image(zMat, vec,
+				hog.winSize, hog.cellSize, 5, 2.5);
+	cv::imwrite("hog-viz.png", visualImage);
 
 	/* compute features for negative examples */
 	std::srand(std::time(0)); // use current time as seed for random generator
@@ -263,7 +277,7 @@ int process(std::string trainDir, std::string inputDir) {
 			std::vector<float> descriptor;
 			int x = std::rand() % (imageMat.cols - hog.winSize.width);
 			int y = std::rand() % (imageMat.rows - hog.winSize.height);
-			int idx = j + i * nRandomNegativesPerImage;
+			int idx = nPositives + j + i * nRandomNegativesPerImage;
 			cv::Rect roi = cv::Rect(cv::Point(x, y), hog.winSize);
 			std::cout << "Sampling random patch #" << idx << " from " << roi
 					<< std::endl;
@@ -286,8 +300,14 @@ int process(std::string trainDir, std::string inputDir) {
 	svm.save("svm.xml");
 
 	for (unsigned int i = 0; i < rows; i++) {
+		/* show measure of distance to average positive feature */
+		double distance=0;
+		for(unsigned int j=0;j<cols;j++)
+		{
+			distance += square(trainingData.at<float>(i,j) - aggregateDescriptor.at<float>(0,j));
+		}
 		float prediction = svm.predict(trainingData.row(i));
-		std::cout << i << " prediction=" << prediction << std::endl;
+		std::cout << i << " dist=" << distance <<" prediction=" << prediction << std::endl;
 	}
 
 	for (unsigned i = 0, end = fullImgFiles.size(); i < end; i++) {
@@ -334,7 +354,7 @@ int process(std::string trainDir, std::string inputDir) {
 		//cv::Mat imageMat = cv::imread(fullImgFiles[0].string().c_str(), 1);
 		cv::Mat imageMat = cv::imread("../samples/prom.jpg", 1);
 
-		for (unsigned int j = 0; j < 300; j++) {
+		for (unsigned int j = 0; j < 1000; j++) {
 			std::vector<float> descriptor;
 			int x = std::rand() % (imageMat.cols - hog.winSize.width);
 			int y = std::rand() % (imageMat.rows - hog.winSize.height);
