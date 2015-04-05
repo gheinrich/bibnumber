@@ -249,8 +249,7 @@ int TextRecognizer::recognize(IplImage *input,
 				LOGL(LOG_TEXTREC, "Text is not a number ('" << s_out << "')");
 				break;
 			}
-			text.push_back(s_out);
-			LOGL(LOG_TEXTREC, "Mat text: " << s_out);
+
 
 #if 0
 			/* save all individual digits for subsequent learning */
@@ -317,8 +316,11 @@ int TextRecognizer::recognize(IplImage *input,
 					float prediction = svm.predict(cv::Mat(descriptor).t());
 					LOGL(LOG_SVM, "Prediction=" << prediction);
 				}
-
 			}
+
+			/* all fine, add this bib number */
+			text.push_back(s_out);
+			LOGL(LOG_TEXTREC, "Bib number: " << s_out);
 
 		} while (0);
 		free(out);
