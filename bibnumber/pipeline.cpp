@@ -103,7 +103,7 @@ int Pipeline::processImage(
 #else
 	IplImage ipl_img = img;
 	std::vector<std::string> text;
-	const struct TextDetectionParams params = {
+	struct TextDetectionParams params = {
 						1, /* darkOnLight */
 						15, /* maxStrokeLength */
 						11, /* minCharacterHeight */
@@ -112,7 +112,20 @@ int Pipeline::processImage(
 						img.rows * 10/100, /* topBorder: discard top 10% */
 						img.rows * 5/100,  /* bottomBorder: discard bottom 5% */
 						3, /* min chain len */
+						0, /* verify with SVM model up to this chain len */
+						0, /* height needs to be this large to verify with model */
 				};
+
+	if (!svmModel.empty())
+	{
+		/* lower min chain len */
+		params.minChainLen = 2;
+		/* verify with SVM model up to this chain len */
+		params.modelVerifLenCrit = 2;
+		/* height needs to be this large to verify with model */
+		params.modelVerifMinHeight = 15;
+	}
+
 	std::vector<Chain> chains;
 	std::vector<std::pair<Point2d, Point2d> > compBB;
 	std::vector<std::pair<CvPoint, CvPoint> > chainBB;

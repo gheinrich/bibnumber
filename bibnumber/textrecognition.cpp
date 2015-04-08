@@ -250,7 +250,6 @@ int TextRecognizer::recognize(IplImage *input,
 				break;
 			}
 
-
 #if 0
 			/* save all individual digits for subsequent learning */
 			for (unsigned int j = 0; j < chains[i].components.size(); j++) {
@@ -295,8 +294,20 @@ int TextRecognizer::recognize(IplImage *input,
 					free(filename);
 				}
 
-				/* if we have an SVM Model, predict */
-				if (!svmModel.empty()) {
+				if (s_out.size() <= params.modelVerifLenCrit) {
+
+					if (svmModel.empty()) {
+						LOGL(LOG_TEXTREC, "Reject " << s_out << " on no model");
+						break;
+					}
+
+					if (minHeight < params.modelVerifMinHeight) {
+						LOGL(LOG_TEXTREC, "Reject " << s_out << " on small height");
+						break;
+					}
+
+					/* if we have an SVM Model, predict */
+
 					CvSVM svm;
 					cv::HOGDescriptor hog(cv::Size(128, 64), /* windows size */
 					cv::Size(16, 16), /* block size */
@@ -315,12 +326,21 @@ int TextRecognizer::recognize(IplImage *input,
 					svm.load(svmModel.c_str());
 					float prediction = svm.predict(cv::Mat(descriptor).t());
 					LOGL(LOG_SVM, "Prediction=" << prediction);
+					if (prediction < 0.5) {
+						LOGL(LOG_TEXTREC,
+								"Reject " << s_out << " on low SVM prediction");
+						break;
+					}
+
 				}
+			} else {
+				LOGL(LOG_TEXTREC, "Reject as ROI outside boundaries");
+				break;
 			}
 
 			/* all fine, add this bib number */
 			text.push_back(s_out);
-			LOGL(LOG_TEXTREC, "Bib number: " << s_out);
+			LOGL(LOG_TEXTREC, "Bib number: '" << s_out << "'");
 
 		} while (0);
 		free(out);

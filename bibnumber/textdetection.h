@@ -55,6 +55,8 @@ struct TextDetectionParams {
 	int topBorder;
 	int bottomBorder;
 	unsigned int minChainLen;
+	int modelVerifLenCrit;
+	int modelVerifMinHeight;
 };
 
 struct Chain {
