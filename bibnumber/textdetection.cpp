@@ -44,7 +44,7 @@
 #define COM_MAX_MEDIAN_RATIO (3.0)
 #define COM_MAX_DIM_RATIO (2.0)
 #define COM_MAX_DIST_RATIO (2.0)
-#define COM_MAX_ASPECT_RATIO (2.0)
+#define COM_MAX_ASPECT_RATIO (2.5)
 
 static inline int square(int x) {
 	return x * x;
@@ -913,7 +913,7 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 								std::min(compDimensions[i].y,compDimensions[j].y));
 
 #endif
-			LOGL(LOG_CHAINS,
+			LOGL(LOG_COMP_PAIRS,
 					"Pair (" << i << ":" << j << "): dist=" << dist << " colorDist=" << colorDist << " maxDim=" << maxDim << " compMediansRatio=" << compMediansRatio << " compDimRatioX=" << compDimRatioX << " compDimRatioY=" << compDimRatioY);
 
 			if (ratio_within(compMediansRatio, COM_MAX_MEDIAN_RATIO)
@@ -953,12 +953,12 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 	for (unsigned int j = 0; j < chains.size(); j++) {
 		LOG(LOG_CHAINS, "Pair" << j <<":");
 		for (unsigned int i = 0; i < chains[j].components.size(); i++) {
-			LOG(LOG_CHAINS, chains[j].components[i] << ",");
+			LOG(LOG_COMP_PAIRS, chains[j].components[i] << ",");
 		}
-		LOGL(LOG_CHAINS, "");
+		LOGL(LOG_COMP_PAIRS, "");
 	}
 
-	LOGL(LOG_CHAINS, chains.size() << " eligible pairs");
+	LOGL(LOG_COMP_PAIRS, chains.size() << " eligible pairs");
 
 	std::sort(chains.begin(), chains.end(), &chainSortDist);
 
