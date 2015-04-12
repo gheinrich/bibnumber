@@ -43,7 +43,7 @@
 
 #define COM_MAX_MEDIAN_RATIO (3.0)
 #define COM_MAX_DIM_RATIO (2.0)
-#define COM_MAX_DIST_RATIO (1.6)
+#define COM_MAX_DIST_RATIO (2.0)
 #define COM_MAX_ASPECT_RATIO (2.0)
 
 static inline int square(int x) {
@@ -894,19 +894,25 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 		for (unsigned int j = i + 1; j < components.size(); j++) {
 			// TODO add color metric
 			float compMediansRatio = compMedians[i] / compMedians[j];
-			float compDimRatioY = (float) compDimensions[i].y
+			float compDimRatioY = ((float) compDimensions[i].y)
 					/ compDimensions[j].y;
-			float compDimRatioX = (float) compDimensions[i].x
+			float compDimRatioX = ((float) compDimensions[i].x)
 					/ compDimensions[j].x;
 			float dist = square(compCenters[i].x - compCenters[j].x)
 					+ square(compCenters[i].y - compCenters[j].y);
 			float colorDist = square(colorAverages[i].x - colorAverages[j].x)
 					+ square(colorAverages[i].y - colorAverages[j].y)
 					+ square(colorAverages[i].z - colorAverages[j].z);
+#if 0
 			float maxDim = (float) square(
 					std::max(std::min(compDimensions[i].x, compDimensions[i].y),
 							std::min(compDimensions[j].x,
 									compDimensions[j].y)));
+#else
+			float maxDim = (float) square(
+								std::min(compDimensions[i].y,compDimensions[j].y));
+
+#endif
 			LOGL(LOG_CHAINS,
 					"Pair (" << i << ":" << j << "): dist=" << dist << " colorDist=" << colorDist << " maxDim=" << maxDim << " compMediansRatio=" << compMediansRatio << " compDimRatioX=" << compDimRatioX << " compDimRatioY=" << compDimRatioY);
 
@@ -956,7 +962,7 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 
 	std::sort(chains.begin(), chains.end(), &chainSortDist);
 
-	const float strictness = PI / 6.0;
+	const float strictness = PI / 10.0;
 	//merge chains
 	int merges = 1;
 	while (merges > 0) {
