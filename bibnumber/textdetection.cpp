@@ -856,6 +856,26 @@ bool chainSortLength(const Chain &lhs, const Chain &rhs) {
 	return lhs.components.size() > rhs.components.size();
 }
 
+bool includes(std::vector<int> v, std::vector<int> V)
+{
+	if (v.size() > V.size())
+		return false;
+
+	for (int i=0,iend=v.size();i<iend;i++)
+	{
+		int j;
+		int jend = V.size();
+		for (j=0;j<jend;j++)
+		{
+			if (v[i] == V[j])
+				break;
+		}
+		if (j==jend)
+			return false;
+	}
+	return true;
+}
+
 std::vector<Chain> makeChains(IplImage * colorImage,
 		std::vector<std::vector<Point2d> > & components,
 		std::vector<Point2dFloat> & compCenters,
@@ -951,7 +971,7 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 
 	/* print pairs */
 	for (unsigned int j = 0; j < chains.size(); j++) {
-		LOG(LOG_CHAINS, "Pair" << j <<":");
+		LOG(LOG_COMP_PAIRS, "Pair" << j <<":");
 		for (unsigned int i = 0; i < chains[j].components.size(); i++) {
 			LOG(LOG_COMP_PAIRS, chains[j].components[i] << ",");
 		}
@@ -1195,19 +1215,43 @@ std::vector<Chain> makeChains(IplImage * colorImage,
 
 	std::vector<Chain> newchains;
 	newchains.reserve(chains.size());
+
+	/* sort chains and remove duplicate components within chains */
 	for (std::vector<Chain>::iterator cit = chains.begin(); cit != chains.end();
 			cit++) {
 
-		/* remove duplicates */
+		/* remove duplicate components */
 		std::sort(cit->components.begin(), cit->components.end());
 		cit->components.erase(
 		std::unique(cit->components.begin(), cit->components.end()),
 		cit->components.end());
+	}
 
+	/* now add all chains */
+	for (int i=0,iend=chains.size(); i<iend; i++)
+	{
 		/* only add chains longer than minimum size */
-		if (cit->components.size() >= params.minChainLen) {
-			newchains.push_back(*cit);
+		if (chains[i].components.size() < params.minChainLen) {
+			LOGL(LOG_CHAINS, "Reject chain " << i << " on size ");
+			break;
 		}
+
+		/* now make sure that chain is not already included
+		 * in another chain */
+		int j;
+		for (j=0; j<iend; j++)
+		{
+			if ( (i!=j) && (includes(chains[i].components, chains[j].components)))
+				break;
+		}
+		if (j<iend)
+		{
+			LOGL(LOG_CHAINS, "Reject chain " << i << " already included in chain " << j);
+			break;
+		}
+
+		/* all good, add that chain */
+		newchains.push_back(chains[i]);
 	}
 
 	chains = newchains;
