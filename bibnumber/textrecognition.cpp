@@ -269,8 +269,6 @@ int TextRecognizer::recognize(IplImage *input,
 			}
 #endif
 
-			/* save whole bib image */
-
 			/* adjust width to size of 6 digits */
 			int width = 6 * (chainBB[i].second.x - chainBB[i].first.x)
 					/ s_out.size();
@@ -285,16 +283,7 @@ int TextRecognizer::recognize(IplImage *input,
 					&& (roi.y + roi.height < inputMat.rows)) {
 				cv::Mat bibMat = inputMat(roi);
 
-				/* save for training only if orientation is ~horizontal */
-				if (abs(theta_deg) < 6) {
-					char *filename;
-					asprintf(&filename, "bib-%05d-%04d.png", this->bsid++,
-							atoi(out));
-					cv::imwrite(filename, bibMat);
-					free(filename);
-				}
-
-				if (s_out.size() <= params.modelVerifLenCrit) {
+				if (s_out.size() <= (unsigned)params.modelVerifLenCrit) {
 
 					if (svmModel.empty()) {
 						LOGL(LOG_TEXTREC, "Reject " << s_out << " on no model");
@@ -302,7 +291,8 @@ int TextRecognizer::recognize(IplImage *input,
 					}
 
 					if (minHeight < params.modelVerifMinHeight) {
-						LOGL(LOG_TEXTREC, "Reject " << s_out << " on small height");
+						LOGL(LOG_TEXTREC,
+								"Reject " << s_out << " on small height");
 						break;
 					}
 
@@ -333,6 +323,16 @@ int TextRecognizer::recognize(IplImage *input,
 					}
 
 				}
+
+				/* save for training only if orientation is ~horizontal */
+				if (abs(theta_deg) < 6) {
+					char *filename;
+					asprintf(&filename, "bib-%05d-%04d.png", this->bsid++,
+							atoi(out));
+					cv::imwrite(filename, bibMat);
+					free(filename);
+				}
+
 			} else {
 				LOGL(LOG_TEXTREC, "Reject as ROI outside boundaries");
 				break;
