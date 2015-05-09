@@ -38,9 +38,36 @@ void LinearSVM::getSupportVector(std::vector<float>& support_vector) const {
 	support_vector.push_back(rho);
 }
 
+
+/**
+ * Compute HOG feature descriptor from input image
+ * @param filename file name of image
+ * @param descriptor HOG feature descriptor
+ * @param hog instance of cv::HOGDescriptor
+ */
+static void computeHOGDescriptor(const std::string filename,
+		std::vector<float>& descriptor, cv::HOGDescriptor& hog) {
+	cv::Mat imageMat = cv::imread(filename, 1);
+	cv::Mat resizedMat;
+
+	// resize to HOGDescriptor dimensions
+	cv::resize(imageMat, resizedMat, hog.winSize, 0, 0);
+	hog.compute(resizedMat, descriptor);
+
+	cv::Mat visualImage = train::hogVisualize(resizedMat, descriptor,
+			hog.winSize, hog.cellSize, 5, 2.5);
+	cv::imwrite("hog-viz.png", visualImage);
+}
+
+static inline double square(double x) {
+	return x * x;
+}
+
+namespace train {
+
 // HOGDescriptor visual_imagealizer
 // adapted for arbitrary size of feature sets and training images
-cv::Mat get_hogdescriptor_visual_image(cv::Mat& origImg,
+cv::Mat hogVisualize(cv::Mat& origImg,
 		std::vector<float>& descriptorValues, cv::Size winSize,
 		cv::Size cellSize, int scaleFactor, double viz_factor) {
 	cv::Mat visual_image;
@@ -189,32 +216,6 @@ cv::Mat get_hogdescriptor_visual_image(cv::Mat& origImg,
 
 }
 
-/**
- * Compute HOG feature descriptor from input image
- * @param filename file name of image
- * @param descriptor HOG feature descriptor
- * @param hog instance of cv::HOGDescriptor
- */
-static void computeHOGDescriptor(const std::string filename,
-		std::vector<float>& descriptor, cv::HOGDescriptor& hog) {
-	cv::Mat imageMat = cv::imread(filename, 1);
-	cv::Mat resizedMat;
-
-	// resize to HOGDescriptor dimensions
-	cv::resize(imageMat, resizedMat, hog.winSize, 0, 0);
-	hog.compute(resizedMat, descriptor);
-
-	cv::Mat visualImage = get_hogdescriptor_visual_image(resizedMat, descriptor,
-			hog.winSize, hog.cellSize, 5, 2.5);
-	cv::imwrite("hog-viz.png", visualImage);
-}
-
-static inline double square(double x) {
-	return x * x;
-}
-
-namespace train {
-
 int process(std::string trainDir, std::string inputDir) {
 
 	if ((!fs::is_directory(trainDir)) || (!fs::is_directory(inputDir))) {
@@ -263,7 +264,7 @@ int process(std::string trainDir, std::string inputDir) {
 	const float*p = aggregateDescriptor.ptr<float>(0);
 	std::vector<float> vec(p, p+aggregateDescriptor.cols);
 	cv::Mat zMat = cv::Mat::zeros(hog.winSize,CV_32FC1);
-	cv::Mat visualImage = get_hogdescriptor_visual_image(zMat, vec,
+	cv::Mat visualImage = hogVisualize(zMat, vec,
 				hog.winSize, hog.cellSize, 5, 2.5);
 	cv::imwrite("hog-viz.png", visualImage);
 

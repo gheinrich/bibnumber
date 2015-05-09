@@ -8,6 +8,8 @@
 #include <opencv/highgui.h>
 #include <opencv2/ml/ml.hpp>
 
+#include "train.h"
+
 #include "textrecognition.h"
 #include "log.h"
 #include "stdio.h"
@@ -23,6 +25,10 @@ static bool is_number(const std::string& s) {
 
 static double absd(double x) {
 	return x > 0 ? x : -x;
+}
+
+static inline double square(double x) {
+	return x * x;
 }
 
 static cv::Rect getBoundingBox(std::vector<cv::Point> vec, cv::Size clip) {
@@ -91,8 +97,8 @@ int TextRecognizer::recognize(IplImage *input,
 
 	for (unsigned int i = 0; i < chainBB.size(); i++) {
 		cv::Point center = cv::Point(
-				(chainBB[i].first.x + chainBB[i].second.x / 2),
-				(chainBB[i].first.y + chainBB[i].second.y / 2));
+				(chainBB[i].first.x + chainBB[i].second.x) / 2,
+				(chainBB[i].first.y + chainBB[i].second.y) / 2);
 
 		/* work out if total width of chain is large enough */
 		if (chainBB[i].second.x - chainBB[i].first.x
@@ -133,6 +139,9 @@ int TextRecognizer::recognize(IplImage *input,
 			continue;
 		LOGL(LOG_TXT_ORIENT,
 				"Chain #" << i << " Angle: " << theta_deg << " degrees");
+
+		std::cout << "center.x=" << center.x << " center.y=" << center.y << std::endl;
+
 
 		/* create copy of input image including only the selected components */
 		cv::Mat inputMat = cv::Mat(input);
@@ -181,14 +190,14 @@ int TextRecognizer::recognize(IplImage *input,
 					, 255 // we could choose any non-zero value. 255 (white) makes it easy to see the binary image
 					, cv::THRESH_OTSU | cv::THRESH_BINARY_INV);
 		}
-		cv::imwrite("bib-components.png", componentsImg);
+		if (i==64) cv::imwrite("bib-components.png", componentsImg);
 
 		cv::Mat rotMatrix = cv::getRotationMatrix2D(center, theta_deg, 1.0);
 
 		cv::Mat rotatedMat = cv::Mat::zeros(grayMat.rows, grayMat.cols,
 				grayMat.type());
 		cv::warpAffine(componentsImg, rotatedMat, rotMatrix, rotatedMat.size());
-		cv::imwrite("bib-rotated.png", rotatedMat);
+		if (i==64) cv::imwrite("bib-rotated.png", rotatedMat);
 
 		/* rotate each component coordinates */
 		const int border = 3;
@@ -222,7 +231,8 @@ int TextRecognizer::recognize(IplImage *input,
 				cv::Size(2 * s + 1, 2 * s + 1), cv::Point(s, s));
 		cv::erode(mat, mat, elem);
 #endif
-		cv::imwrite("bib-tess-input.png", mat);
+		if (i == 26)
+			cv::imwrite("bib-tess-input.png", mat);
 
 		// Pass it to Tesseract API
 		tess.SetImage((uchar*) mat.data, mat.cols, mat.rows, 1, mat.step1());
@@ -270,12 +280,15 @@ int TextRecognizer::recognize(IplImage *input,
 #endif
 
 			/* adjust width to size of 6 digits */
-			int width = 6 * (chainBB[i].second.x - chainBB[i].first.x)
-					/ s_out.size();
+			int charWidth = (chainBB[i].second.x - chainBB[i].first.x) / s_out.size();
+			int width = 6 * charWidth;
 			/* adjust to 2 width/height aspect ratio */
 			int height = width / 2;
 			int midx = (chainBB[i].first.x + chainBB[i].second.x) / 2;
 			int midy = (chainBB[i].first.y + chainBB[i].second.y) / 2;
+
+			std::cout << "midx=" << midx << " midy=" << midy << std::endl;
+
 			cv::Rect roi = cv::Rect(midx - width / 2, midy - height / 2, width,
 					height);
 			if ((roi.x >= 0) && (roi.y >= 0)
@@ -283,7 +296,7 @@ int TextRecognizer::recognize(IplImage *input,
 					&& (roi.y + roi.height < inputMat.rows)) {
 				cv::Mat bibMat = inputMat(roi);
 
-				if (s_out.size() <= (unsigned)params.modelVerifLenCrit) {
+				if (s_out.size() <= (unsigned) params.modelVerifLenCrit) {
 
 					if (svmModel.empty()) {
 						LOGL(LOG_TEXTREC, "Reject " << s_out << " on no model");
@@ -322,10 +335,89 @@ int TextRecognizer::recognize(IplImage *input,
 						break;
 					}
 
+					if ( (i == 64) &&
+							(1) ) {
+						cv::Mat inputRotated = cv::Mat::zeros(inputMat.rows, inputMat.cols,
+								inputMat.type());
+						cv::warpAffine(inputMat, inputRotated, rotMatrix, inputRotated.size());
+
+						int minOffset = 0;
+						double min = 1e6;
+						for (int offset = -50; offset < 30; offset += 2) {
+							cv::HOGDescriptor hog(cv::Size(128, 64), /* windows size */
+							cv::Size(128, 64), /* block size */
+							cv::Size(8, 8), /* block stride */
+							cv::Size(8, 8), /* cell size */
+							9 /* nbins */
+							);
+
+							/* resize to HOGDescriptor dimensions */
+							cv::Mat straightMat;
+							cv::Mat flippedMat;
+							std::vector<float> straightDesc;
+							std::vector<float> flippedDesc;
+							//cv::Rect roi = cv::Rect(midx - width / 2 + offset,
+							//		midy - height / 2 , width, height);
+							cv::Rect roi = cv::Rect(midx - width / 2 + offset,
+												midy - height / 2 , width, height);
+							cv::Mat bibMat = inputRotated(roi);
+							cv::resize(bibMat, straightMat, hog.winSize, 0, 0);
+							hog.compute(straightMat, straightDesc);
+							cv::flip(straightMat, flippedMat, 1);
+							hog.compute(flippedMat, flippedDesc);
+
+							double dist = 0;
+							for (int i = 0, iend = straightDesc.size();
+									i < iend; i++) {
+								double tmp = square(
+										straightDesc[i] - flippedDesc[i]);
+								if (tmp > 0)
+									tmp /= straightDesc[i] + flippedDesc[i];
+								dist += tmp;
+							}
+							dist /= straightDesc.size();
+							std::cout << "offset=" << offset << " dist=" << dist
+									<< std::endl;
+
+							if (dist < min)
+							{
+								min = dist;
+								minOffset = offset;
+								cv::imwrite("min1.png", straightMat);
+							}
+#if 0
+							if (offset == -30) {
+								cv::imwrite("min1.png", straightMat);
+								cv::Mat visualImage;
+								visualImage = train::hogVisualize(straightMat,
+										straightDesc, hog.winSize, hog.cellSize,
+										5, 2.5);
+								cv::imwrite("hog-viz-straight.png",
+										visualImage);
+								visualImage = train::hogVisualize(flippedMat,
+										flippedDesc, hog.winSize, hog.cellSize,
+										5, 2.5);
+								cv::imwrite("hog-viz-flipped.png",
+										visualImage);
+							}
+							if (offset == 20)
+								cv::imwrite("min2.png", straightMat);
+#endif
+						}
+						std::cout << "MinOffset = " << minOffset
+								<< " charWidth=" << charWidth << std::endl;
+
+						if (absd(minOffset) > charWidth/3) {
+							LOGL(LOG_TEXTREC,
+									"Reject " << s_out << " on asymmetry");
+							std::cout << "Reject " << s_out << " on asymmetry" << std::endl;
+									break;
+						}
+					}
 				}
 
 				/* save for training only if orientation is ~horizontal */
-				if (abs(theta_deg) < 6) {
+				if (abs(theta_deg) < 7) {
 					char *filename;
 					asprintf(&filename, "bib-%05d-%04d.png", this->bsid++,
 							atoi(out));
