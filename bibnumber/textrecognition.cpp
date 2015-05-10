@@ -91,8 +91,8 @@ int TextRecognizer::recognize(IplImage *input,
 
 	for (unsigned int i = 0; i < chainBB.size(); i++) {
 		cv::Point center = cv::Point(
-				(chainBB[i].first.x + chainBB[i].second.x / 2),
-				(chainBB[i].first.y + chainBB[i].second.y / 2));
+				(chainBB[i].first.x + chainBB[i].second.x) / 2,
+				(chainBB[i].first.y + chainBB[i].second.y) / 2);
 
 		/* work out if total width of chain is large enough */
 		if (chainBB[i].second.x - chainBB[i].first.x
