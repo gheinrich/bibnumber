@@ -11,6 +11,7 @@
 #define LOG_TEXTREC (1<<3)
 #define LOG_SVM (1<<4)
 #define LOG_COMP_PAIRS (1<<5)
+#define LOG_SYMM_CHECK (1<<6)
 #define LOG_ALL (0xFFFFFFFF)
 #define LOG_NONE (0)
 

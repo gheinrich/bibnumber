@@ -38,9 +38,32 @@ void LinearSVM::getSupportVector(std::vector<float>& support_vector) const {
 	support_vector.push_back(rho);
 }
 
+
+/**
+ * Compute HOG feature descriptor from input image
+ * @param filename file name of image
+ * @param descriptor HOG feature descriptor
+ * @param hog instance of cv::HOGDescriptor
+ */
+static void computeHOGDescriptor(const std::string filename,
+		std::vector<float>& descriptor, cv::HOGDescriptor& hog) {
+	cv::Mat imageMat = cv::imread(filename, 1);
+	cv::Mat resizedMat;
+
+	// resize to HOGDescriptor dimensions
+	cv::resize(imageMat, resizedMat, hog.winSize, 0, 0);
+	hog.compute(resizedMat, descriptor);
+}
+
+static inline double square(double x) {
+	return x * x;
+}
+
+namespace train {
+
 // HOGDescriptor visual_imagealizer
 // adapted for arbitrary size of feature sets and training images
-cv::Mat get_hogdescriptor_visual_image(cv::Mat& origImg,
+cv::Mat hogVisualizeStdBlkSize(cv::Mat& origImg,
 		std::vector<float>& descriptorValues, cv::Size winSize,
 		cv::Size cellSize, int scaleFactor, double viz_factor) {
 	cv::Mat visual_image;
@@ -189,31 +212,82 @@ cv::Mat get_hogdescriptor_visual_image(cv::Mat& origImg,
 
 }
 
-/**
- * Compute HOG feature descriptor from input image
- * @param filename file name of image
- * @param descriptor HOG feature descriptor
- * @param hog instance of cv::HOGDescriptor
- */
-static void computeHOGDescriptor(const std::string filename,
-		std::vector<float>& descriptor, cv::HOGDescriptor& hog) {
-	cv::Mat imageMat = cv::imread(filename, 1);
-	cv::Mat resizedMat;
+// HOGDescriptor visual_imagealizer
+// adapted for arbitrary size of feature sets and training images
+cv::Mat hogVisualizeSingleBlock(cv::Mat& origImg,
+		std::vector<float>& descriptorValues, cv::Size winSize,
+		cv::Size cellSize, int scaleFactor, double viz_factor) {
+	cv::Mat visual_image;
+	cv::resize(origImg, visual_image,
+			cv::Size(origImg.cols * scaleFactor, origImg.rows * scaleFactor));
 
-	// resize to HOGDescriptor dimensions
-	cv::resize(imageMat, resizedMat, hog.winSize, 0, 0);
-	hog.compute(resizedMat, descriptor);
+	int gradientBinSize = 9;
+	// dividing 180° into 9 bins, how large (in rad) is one bin?
+	float radRangeForOneBin = 3.14 / (float) gradientBinSize;
 
-	cv::Mat visualImage = get_hogdescriptor_visual_image(resizedMat, descriptor,
-			hog.winSize, hog.cellSize, 5, 2.5);
-	cv::imwrite("hog-viz.png", visualImage);
+	// prepare data structure: 9 orientation / gradient strenghts for each cell
+	int cells_in_x_dir = winSize.width / cellSize.width;
+	int cells_in_y_dir = winSize.height / cellSize.height;
+
+	// draw cells
+	int idx = 0;
+	for (int cellx = 0; cellx < cells_in_x_dir; cellx++) {
+	for (int celly = 0; celly < cells_in_y_dir; celly++) {
+
+			int drawX = cellx * cellSize.width;
+			int drawY = celly * cellSize.height;
+
+			int mx = drawX + cellSize.width / 2;
+			int my = drawY + cellSize.height / 2;
+
+			cv::rectangle(visual_image,
+					cv::Point(drawX * scaleFactor, drawY * scaleFactor),
+					cv::Point((drawX + cellSize.width) * scaleFactor,
+							(drawY + cellSize.height) * scaleFactor),
+					CV_RGB(100, 100, 100), 1);
+
+			//std::cout << std::endl << "x=" << cellx << " y=" << celly;
+			// draw in each cell all 9 gradient strengths
+			for (int bin = 0; bin < gradientBinSize; bin++) {
+				float currentGradStrength = descriptorValues[idx++];
+				//std::cout << " bin=" << bin << ":" << currentGradStrength;
+
+				// no line to draw?
+				if (currentGradStrength == 0)
+					continue;
+
+				float currRad = bin * radRangeForOneBin + radRangeForOneBin / 2;
+
+				float dirVecX = cos(currRad);
+				float dirVecY = sin(currRad);
+				float maxVecLen = cellSize.width / 2;
+				float scale = viz_factor; // just a visual_imagealization scale,
+										  // to see the lines better
+
+				// compute line coordinates
+				float x1 = mx
+						- dirVecX * currentGradStrength * maxVecLen * scale;
+				float y1 = my
+						- dirVecY * currentGradStrength * maxVecLen * scale;
+				float x2 = mx
+						+ dirVecX * currentGradStrength * maxVecLen * scale;
+				float y2 = my
+						+ dirVecY * currentGradStrength * maxVecLen * scale;
+
+				// draw gradient visual_imagealization
+				cv::line(visual_image,
+						cv::Point(x1 * scaleFactor, y1 * scaleFactor),
+						cv::Point(x2 * scaleFactor, y2 * scaleFactor),
+						CV_RGB(0, 0, 255), 1);
+
+			} // for (all bins)
+
+		} // for (cellx)
+	} // for (celly)
+
+	return visual_image;
+
 }
-
-static inline double square(double x) {
-	return x * x;
-}
-
-namespace train {
 
 int process(std::string trainDir, std::string inputDir) {
 
@@ -263,7 +337,7 @@ int process(std::string trainDir, std::string inputDir) {
 	const float*p = aggregateDescriptor.ptr<float>(0);
 	std::vector<float> vec(p, p+aggregateDescriptor.cols);
 	cv::Mat zMat = cv::Mat::zeros(hog.winSize,CV_32FC1);
-	cv::Mat visualImage = get_hogdescriptor_visual_image(zMat, vec,
+	cv::Mat visualImage = hogVisualizeStdBlkSize(zMat, vec,
 				hog.winSize, hog.cellSize, 5, 2.5);
 	cv::imwrite("hog-viz.png", visualImage);
 

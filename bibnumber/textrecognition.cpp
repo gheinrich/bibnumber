@@ -8,6 +8,8 @@
 #include <opencv/highgui.h>
 #include <opencv2/ml/ml.hpp>
 
+#include "train.h"
+
 #include "textrecognition.h"
 #include "log.h"
 #include "stdio.h"
@@ -25,6 +27,10 @@ static double absd(double x) {
 	return x > 0 ? x : -x;
 }
 
+static inline double square(double x) {
+	return x * x;
+}
+
 static cv::Rect getBoundingBox(std::vector<cv::Point> vec, cv::Size clip) {
 	int minx = clip.width - 1, miny = clip.height - 1, maxx = 0, maxy = 0;
 	for (std::vector<cv::Point>::iterator it = vec.begin(); it != vec.end();
@@ -39,6 +45,58 @@ static cv::Rect getBoundingBox(std::vector<cv::Point> vec, cv::Size clip) {
 			maxy = std::min(it->y, clip.height - 1);
 	}
 	return cv::Rect(cv::Point(minx, miny), cv::Point(maxx, maxy));
+}
+
+cv::Scalar getMSSIM(const cv::Mat& i1, const cv::Mat& i2) {
+	const double C1 = 6.5025, C2 = 58.5225;
+	/***************************** INITS **********************************/
+	int d = CV_32F;
+
+	cv::Mat I1, I2;
+	i1.convertTo(I1, d);           // cannot calculate on one byte large values
+	i2.convertTo(I2, d);
+
+	cv::Mat I2_2 = I2.mul(I2);        // I2^2
+	cv::Mat I1_2 = I1.mul(I1);        // I1^2
+	cv::Mat I1_I2 = I1.mul(I2);        // I1 * I2
+
+	/***********************PRELIMINARY COMPUTING ******************************/
+
+	cv::Mat mu1, mu2;   //
+	cv::GaussianBlur(I1, mu1, cv::Size(11, 11), 1.5);
+	cv::GaussianBlur(I2, mu2, cv::Size(11, 11), 1.5);
+
+	cv::Mat mu1_2 = mu1.mul(mu1);
+	cv::Mat mu2_2 = mu2.mul(mu2);
+	cv::Mat mu1_mu2 = mu1.mul(mu2);
+
+	cv::Mat sigma1_2, sigma2_2, sigma12;
+
+	cv::GaussianBlur(I1_2, sigma1_2, cv::Size(11, 11), 1.5);
+	sigma1_2 -= mu1_2;
+
+	cv::GaussianBlur(I2_2, sigma2_2, cv::Size(11, 11), 1.5);
+	sigma2_2 -= mu2_2;
+
+	cv::GaussianBlur(I1_I2, sigma12, cv::Size(11, 11), 1.5);
+	sigma12 -= mu1_mu2;
+
+	///////////////////////////////// FORMULA ////////////////////////////////
+	cv::Mat t1, t2, t3;
+
+	t1 = 2 * mu1_mu2 + C1;
+	t2 = 2 * sigma12 + C2;
+	t3 = t1.mul(t2);              // t3 = ((2*mu1_mu2 + C1).*(2*sigma12 + C2))
+
+	t1 = mu1_2 + mu2_2 + C1;
+	t2 = sigma1_2 + sigma2_2 + C2;
+	t1 = t1.mul(t2);   // t1 =((mu1_2 + mu2_2 + C1).*(sigma1_2 + sigma2_2 + C2))
+
+	cv::Mat ssim_map;
+	divide(t3, t1, ssim_map);      // ssim_map =  t3./t1;
+
+	cv::Scalar mssim = mean(ssim_map); // mssim = average of ssim map
+	return mssim;
 }
 
 namespace textrecognition {
@@ -212,7 +270,6 @@ int TextRecognizer::recognize(IplImage *input,
 								cv::Point(roi.width + border,
 										roi.height + border))));
 
-#if 1
 		/* resize image to improve OCR success rate */
 		float upscale = 3.0;
 		cv::resize(mat, mat, cvSize(0, 0), upscale, upscale);
@@ -221,7 +278,6 @@ int TextRecognizer::recognize(IplImage *input,
 		cv::Mat elem = cv::getStructuringElement(cv::MORPH_ELLIPSE,
 				cv::Size(2 * s + 1, 2 * s + 1), cv::Point(s, s));
 		cv::erode(mat, mat, elem);
-#endif
 		cv::imwrite("bib-tess-input.png", mat);
 
 		// Pass it to Tesseract API
@@ -250,32 +306,15 @@ int TextRecognizer::recognize(IplImage *input,
 				break;
 			}
 
-#if 0
-			/* save all individual digits for subsequent learning */
-			for (unsigned int j = 0; j < chains[i].components.size(); j++) {
-				int component_id = chains[i].components[j];
-				/* enforce 3x height/width aspect ratio */
-				int midy = (compBB[component_id].first.y
-						+ compBB[component_id].second.y) / 2;
-				int width = compBB[component_id].second.x
-				- compBB[component_id].first.x;
-				cv::Rect roi = cv::Rect(compBB[component_id].first.x,
-						midy - 3 * width / 2, width, 3 * width);
-				cv::Mat digitMat = grayMat(roi);
-				char *filename;
-				asprintf(&filename, "digit-%c-%04d.png", out[j], this->dsid++);
-				cv::imwrite(filename, digitMat);
-				free(filename);
-			}
-#endif
-
 			/* adjust width to size of 6 digits */
-			int width = 6 * (chainBB[i].second.x - chainBB[i].first.x)
+			int charWidth = (chainBB[i].second.x - chainBB[i].first.x)
 					/ s_out.size();
+			int width = 6 * charWidth;
 			/* adjust to 2 width/height aspect ratio */
 			int height = width / 2;
-			int midx = (chainBB[i].first.x + chainBB[i].second.x) / 2;
-			int midy = (chainBB[i].first.y + chainBB[i].second.y) / 2;
+			int midx = center.x;
+			int midy = center.y;
+
 			cv::Rect roi = cv::Rect(midx - width / 2, midy - height / 2, width,
 					height);
 			if ((roi.x >= 0) && (roi.y >= 0)
@@ -283,7 +322,7 @@ int TextRecognizer::recognize(IplImage *input,
 					&& (roi.y + roi.height < inputMat.rows)) {
 				cv::Mat bibMat = inputMat(roi);
 
-				if (s_out.size() <= (unsigned)params.modelVerifLenCrit) {
+				if (s_out.size() <= (unsigned) params.modelVerifLenCrit) {
 
 					if (svmModel.empty()) {
 						LOGL(LOG_TEXTREC, "Reject " << s_out << " on no model");
@@ -321,11 +360,63 @@ int TextRecognizer::recognize(IplImage *input,
 								"Reject " << s_out << " on low SVM prediction");
 						break;
 					}
+				}
 
+				/* symmetry check */
+				if (   //(i == 4) &&
+						(1)) {
+					cv::Mat inputRotated = cv::Mat::zeros(inputMat.rows,
+							inputMat.cols, inputMat.type());
+					cv::warpAffine(inputMat, inputRotated, rotMatrix,
+							inputRotated.size());
+
+					int minOffset = 0;
+					double min = 1e6;
+					//width = 12 * charWidth;
+					for (int offset = -50; offset < 30; offset += 2) {
+
+						/* resize to HOGDescriptor dimensions */
+						cv::Mat straightMat;
+						cv::Mat flippedMat;
+
+						/* extract shifted ROI */
+						cv::Rect roi = cv::Rect(midx - width / 2 + offset,
+								midy - height / 2, width, height);
+
+						if ((roi.x >= 0) && (roi.y >= 0)
+								&& (roi.x + roi.width < inputMat.cols)
+								&& (roi.y + roi.height < inputMat.rows)) {
+							straightMat = inputRotated(roi);
+							cv::flip(straightMat, flippedMat, 1);
+							cv::Scalar mssimV = getMSSIM(straightMat,
+									flippedMat);
+							double avgMssim = (mssimV.val[0] + mssimV.val[1]
+									+ mssimV.val[2]) * 100 / 3;
+							double dist = 1 / (avgMssim + 1);
+							LOGL(LOG_SYMM_CHECK, "offset=" << offset << " dist=" << dist);
+							if (dist < min) {
+								min = dist;
+								minOffset = offset;
+								cv::imwrite("symm-max.png", straightMat);
+								cv::Mat visualImage;
+							}
+						}
+					}
+
+					LOGL(LOG_SYMM_CHECK, "MinOffset = " << minOffset
+							<< " charWidth=" << charWidth);
+
+					if (absd(minOffset) > charWidth / 3) {
+						LOGL(LOG_TEXTREC,
+								"Reject " << s_out << " on asymmetry");
+						std::cout << "Reject " << s_out << " on asymmetry"
+								<< std::endl;
+						break;
+					}
 				}
 
 				/* save for training only if orientation is ~horizontal */
-				if (abs(theta_deg) < 6) {
+				if (abs(theta_deg) < 7) {
 					char *filename;
 					asprintf(&filename, "bib-%05d-%04d.png", this->bsid++,
 							atoi(out));
