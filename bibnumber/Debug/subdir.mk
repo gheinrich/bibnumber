@@ -11,7 +11,8 @@ CPP_SRCS += \
 ../pipeline.cpp \
 ../textdetection.cpp \
 ../textrecognition.cpp \
-../train.cpp 
+../train.cpp \
+../dumpimages.cpp 
 
 OBJS += \
 ./batch.o \
@@ -21,7 +22,8 @@ OBJS += \
 ./pipeline.o \
 ./textdetection.o \
 ./textrecognition.o \
-./train.o 
+./train.o \
+./dumpimages.o 
 
 CPP_DEPS += \
 ./batch.d \
@@ -31,7 +33,8 @@ CPP_DEPS += \
 ./pipeline.d \
 ./textdetection.d \
 ./textrecognition.d \
-./train.d 
+./train.d \
+./dumpimages.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
