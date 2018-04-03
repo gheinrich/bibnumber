@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/bimap.hpp>
 #include <boost/bimap/set_of.hpp>
 #include <boost/bimap/multiset_of.hpp>
@@ -16,6 +17,7 @@
 #include "batch.h"
 #include "pipeline.h"
 #include "log.h"
+#include "dumpimages.h"
 
 namespace bimaps = boost::bimaps;
 namespace fs = boost::filesystem;
@@ -243,9 +245,12 @@ int process(std::string inputName, std::string svmModel) {
 				bimaps::multiset_of<int> > imgTagBimap;
 
 		imgTagBimap tags;
+        bool file_dump_flag;
 
 		/* find images in directory */
 		img_paths = getImageFiles(inputName);
+
+        dumpimages::dumpFiles dumpObj;
 
 		/* process images */
 		for (int i = 0, j=img_paths.size(); i<j ; i++) {
@@ -257,7 +262,18 @@ int process(std::string inputName, std::string svmModel) {
 			for (unsigned int k = 0; k < bibNumbers.size(); k++) {
 				tags.insert(
 						imgTagBimap::value_type(img_paths[i].string(), bibNumbers[k]));
+                        file_dump_flag = dumpObj.dumpImages(boost::lexical_cast<std::string>(bibNumbers[k]), img_paths[i]);
 			}
+
+            if(bibNumbers.size() == 0)
+            {
+                file_dump_flag = dumpObj.dumpImages(dumpObj.NOT_FOUND, img_paths[i]);
+            }
+
+            if(file_dump_flag)
+            {
+                std::cout << "Success in copying file." << std::endl;
+            }
 		}
 
 		/* save results to .csv file */
