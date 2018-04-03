@@ -245,7 +245,7 @@ int process(std::string inputName, std::string svmModel) {
 				bimaps::multiset_of<int> > imgTagBimap;
 
 		imgTagBimap tags;
-        bool file_dump_flag;
+	        bool file_dump_flag;
 
 		/* find images in directory */
 		img_paths = getImageFiles(inputName);
@@ -265,15 +265,15 @@ int process(std::string inputName, std::string svmModel) {
                         file_dump_flag = dumpObj.dumpImages(boost::lexical_cast<std::string>(bibNumbers[k]), img_paths[i]);
 			}
 
-            if(bibNumbers.size() == 0)
-            {
-                file_dump_flag = dumpObj.dumpImages(dumpObj.NOT_FOUND, img_paths[i]);
-            }
+            		if(bibNumbers.size() == 0)
+            		{
+                		file_dump_flag = dumpObj.dumpImages(dumpObj.NOT_FOUND, img_paths[i]);
+            		}
 
-            if(file_dump_flag)
-            {
-                std::cout << "Success in copying file." << std::endl;
-            }
+            		if(file_dump_flag)
+            		{
+                		std::cout << "Success in copying file." << std::endl;
+            		}
 		}
 
 		/* save results to .csv file */
